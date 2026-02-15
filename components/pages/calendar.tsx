@@ -360,62 +360,66 @@ export default function CalendarPage() {
  <span>Tap a day to block/unblock. Bookable until {bookableUntil}</span>
  </div>
 
- <div className="grid grid-cols-7 mb-2">
- {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
- <div
- key={`${d}-${i}`}
- className="py-2 text-center text-sm font-semibold text-foreground"
- >
- {d}
- </div>
- ))}
- </div>
+        <div className="relative overflow-x-auto">
+          <div className="min-w-[600px]">
+            <div className="grid grid-cols-7 mb-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
+                <div
+                  key={`${d}-${i}`}
+                  className="py-2 text-center text-sm font-semibold text-foreground"
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
 
- <div className="grid grid-cols-7 gap-1">
- {Array.from({ length: startDayOfWeek }).map((_, i) => (
- <div key={`empty-${i}`} className="h-10" />
- ))}
- {days.map((day) => {
- const status = getDayStatus(day);
- const today = isToday(day);
- const reservation = status === "reserved" ? getReservationForDay(day) : null;
- const channelKey = (reservation as any)?.channelKey as ChannelKey | undefined;
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: startDayOfWeek }).map((_, i) => (
+                <div key={`empty-${i}`} className="h-10" />
+              ))}
+              {days.map((day) => {
+                const status = getDayStatus(day);
+                const today = isToday(day);
+                const reservation = status === "reserved" ? getReservationForDay(day) : null;
+                const channelKey = (reservation as any)?.channelKey as ChannelKey | undefined;
 
- return (
- <button
- key={day.toISOString()}
- onClick={() => handleDayClick(day)}
- disabled={blockMutation.isPending}
- className={cn(
- "relative flex h-10 items-center justify-center rounded-md text-sm font-medium transition-colors",
- status === "reserved" &&
- "bg-emerald-100 text-emerald-900 font-semibold",
- status === "blocked" &&
- "bg-gray-700 text-white",
- status === "available" &&
- "hover-elevate active-elevate-2",
- today && "ring-1 ring-foreground/20"
- )}
- data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
- >
- <span className={cn(today && "font-bold")}>
- {format(day, "d")}
- </span>
- {status === "reserved" && channelKey && (
- <span className="absolute bottom-0.5">
- <ChannelIcon channelKey={channelKey} size={10} />
- </span>
- )}
- {status === "reserved" && !channelKey && (
- <span className="absolute bottom-1 h-1 w-3 rounded-full bg-emerald-500/40" />
- )}
- {status === "blocked" && (
- <Lock className="absolute bottom-0.5 h-2.5 w-2.5 text-gray-300" />
- )}
- </button>
- );
- })}
- </div>
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => handleDayClick(day)}
+                    disabled={blockMutation.isPending}
+                    className={cn(
+                      "relative flex h-10 items-center justify-center rounded-md text-sm font-medium transition-colors",
+                      status === "reserved" &&
+                        "bg-emerald-100 text-emerald-900 font-semibold",
+                      status === "blocked" &&
+                        "bg-gray-700 text-white",
+                      status === "available" &&
+                        "hover-elevate active-elevate-2",
+                      today && "ring-1 ring-foreground/20"
+                    )}
+                    data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+                  >
+                    <span className={cn(today && "font-bold")}>
+                      {format(day, "d")}
+                    </span>
+                    {status === "reserved" && channelKey && (
+                      <span className="absolute bottom-0.5">
+                        <ChannelIcon channelKey={channelKey} size={10} />
+                      </span>
+                    )}
+                    {status === "reserved" && !channelKey && (
+                      <span className="absolute bottom-1 h-1 w-3 rounded-full bg-emerald-500/40" />
+                    )}
+                    {status === "blocked" && (
+                      <Lock className="absolute bottom-0.5 h-2.5 w-2.5 text-gray-300" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
  <div className="mt-4 flex items-center gap-5 text-xs text-muted-foreground">
  <div className="flex items-center gap-1.5">

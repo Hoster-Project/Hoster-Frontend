@@ -1,4 +1,7 @@
+"use client";
+
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -374,7 +377,14 @@ function RequestsTab() {
                 {sub.listings.map((l) => (
                   <div key={l.id} className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
                     {l.photos && l.photos.length > 0 && (
-                      <img src={l.photos[0]} alt={l.name} className="h-8 w-8 rounded-md object-cover" />
+                      <Image 
+                        src={l.photos[0]} 
+                        alt={l.name} 
+                        width={32}
+                        height={32}
+                        className="rounded-md object-cover"
+                        unoptimized
+                      />
                     )}
                     <span className="text-xs font-medium">{l.name}</span>
                   </div>
@@ -623,7 +633,13 @@ function PropertiesTab() {
                   <div className="grid grid-cols-4 gap-2">
                     {photoUrls.map((url, idx) => (
                       <div key={idx} className="relative group aspect-square rounded-md overflow-hidden">
-                        <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                        <Image 
+                          src={url} 
+                          alt={`Photo ${idx + 1}`} 
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
                         <button
                           type="button"
                           onClick={() => removePhoto(idx)}
@@ -683,7 +699,14 @@ function PropertiesTab() {
               <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/30 p-3">
                 <div className="flex items-center gap-3">
                   {l.photos && l.photos.length > 0 ? (
-                    <img src={l.photos[0]} alt={l.name} className="h-12 w-12 rounded-md object-cover" />
+                    <Image 
+                      src={l.photos[0]} 
+                      alt={l.name} 
+                      width={48} 
+                      height={48} 
+                      className="rounded-md object-cover" 
+                      unoptimized
+                    />
                   ) : (
                     <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center">
                       <Home className="h-5 w-5 text-muted-foreground" />

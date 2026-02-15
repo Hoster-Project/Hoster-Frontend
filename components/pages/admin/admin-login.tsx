@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,19 +12,18 @@ import { Loader2, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
 import * as Yup from "yup";
 
-interface AdminLoginProps {
-  onSuccess: () => void;
-}
+
 
 const AdminLoginSchema = Yup.object().shape({
   email: Yup.string().email("Invalid email").required("Email is required"),
   password: Yup.string().required("Password is required"),
 });
 
-export default function AdminLogin({ onSuccess }: AdminLoginProps) {
+export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleLogin = async (values: { email: string; password: string }, { setSubmitting }: FormikHelpers<any>) => {
     const { email, password } = values;
@@ -31,7 +31,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
     try {
       await apiRequest("POST", "/api/auth/login", { email, password });
 
-      const checkRes = await fetch("/api/admin/auth-check");
+      const checkRes = await apiRequest("GET", "/api/admin/auth-check");
       const checkData = await checkRes.json();
 
       if (!checkData.isAdmin) {
@@ -45,7 +45,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
         return;
       }
 
-      onSuccess();
+      router.push('/admin');
     } catch (error: any) {
       toast({
         title: "Login failed",
@@ -68,7 +68,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
 
       if (setupData.success) {
         toast({ title: "Admin setup complete", description: "You are now the admin." });
-        onSuccess();
+        router.push('/admin');
       } else {
         await apiRequest("POST", "/api/auth/logout");
         toast({

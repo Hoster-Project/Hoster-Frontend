@@ -1,6 +1,10 @@
-'use client';
+import LoginPage from "@/components/pages/login";
+import { constructMetadata } from "@/lib/metadata";
 
-import LoginPage from '@/components/pages/login';
+export const metadata = constructMetadata({
+  title: "Login | Hoster",
+  description: "Sign in to manage your rentals, view bookings, and communicate with guests.",
+});
 
 export default function Page() {
   return <LoginPage />;

@@ -1,7 +1,12 @@
-'use client';
+import { constructMetadata } from "@/lib/metadata";
+import AdminLoader from "@/components/pages/admin/loader";
 
-import AdminDashboard from '@/components/pages/admin/admin-dashboard';
+export const metadata = constructMetadata({
+  title: "Admin Dashboard | Hoster",
+  description: "System overview and administrative controls.",
+  noIndex: true,
+});
 
 export default function Page() {
-  return <AdminDashboard />;
+  return <AdminLoader />;
 }

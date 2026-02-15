@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
 import * as Yup from "yup";
+import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
 
 const SignupSchema = Yup.object().shape({
   firstName: Yup.string().required("First name is required"),
@@ -66,13 +70,24 @@ export default function SignupPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (user && !isLoading) {
+      if (user.role === "admin") {
+        router.push("/admin");
+      } else if (user.role === "provider") {
+        router.push("/provider");
+      } else {
+        router.push("/dashboard");
+      }
+    }
+  }, [user, isLoading, router]);
 
   const registerMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/auth/register", data);
-      const resData = await res.json();
-      await apiRequest("POST", "/api/auth/logout");
-      return resData;
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: ["/api/auth/user"] });

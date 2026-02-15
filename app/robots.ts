@@ -1,12 +1,20 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
+  const baseUrl = 'https://hoster.demo';
+
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/api/'],
+      disallow: [
+        '/admin/',
+        '/settings/',
+        '/provider/',
+        '/inbox/',
+        '/api/',
+      ],
     },
-    sitemap: 'https://hoster.demo/sitemap.xml',
-  }
+    sitemap: `${baseUrl}/sitemap.xml`,
+  };
 }

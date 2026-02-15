@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import {
 import {
   ClipboardList,
   Star,
-  Image,
+  Image as ImageIcon,
   AlertTriangle,
   Check,
   Clock,
@@ -24,6 +26,7 @@ import {
   FileText,
   Flag,
 } from "lucide-react";
+import Image from "next/image";
 
 type AdminSubscription = {
   id: string;
@@ -144,13 +147,13 @@ export default function AdminCleaningPage() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">
             <ClipboardList className="h-4 w-4 mr-1.5" />
             Subscriptions
           </TabsTrigger>
           <TabsTrigger value="reports" data-testid="tab-reports">
-            <Image className="h-4 w-4 mr-1.5" />
+            <ImageIcon className="h-4 w-4 mr-1.5" />
             Visit Reports
           </TabsTrigger>
           <TabsTrigger value="reviews" data-testid="tab-reviews">
@@ -240,7 +243,7 @@ export default function AdminCleaningPage() {
                         setSelectedPhotoIdx(0);
                         setPhotoDialogOpen(true);
                       }}>
-                        <Image className="h-3 w-3 mr-1" />
+                        <ImageIcon className="h-3 w-3 mr-1" />
                         {report.photos?.length || 0} photos
                       </Badge>
                       {report.review && (
@@ -347,11 +350,15 @@ export default function AdminCleaningPage() {
           </DialogHeader>
           {selectedPhotos.length > 0 && (
             <div>
-              <img
-                src={selectedPhotos[selectedPhotoIdx]}
-                alt={`Photo ${selectedPhotoIdx + 1}`}
-                className="w-full rounded-md mb-3"
-              />
+              <div className="relative w-full h-[60vh] mb-3">
+                <Image
+                  src={selectedPhotos[selectedPhotoIdx]}
+                  alt={`Photo ${selectedPhotoIdx + 1}`}
+                  fill
+                  className="rounded-md object-contain"
+                  unoptimized
+                />
+              </div>
               <div className="grid grid-cols-6 gap-1.5">
                 {selectedPhotos.map((photo, idx) => (
                   <div
@@ -359,7 +366,13 @@ export default function AdminCleaningPage() {
                     className={`aspect-square rounded overflow-hidden border-2 cursor-pointer ${idx === selectedPhotoIdx ? "border-primary" : "border-transparent"}`}
                     onClick={() => setSelectedPhotoIdx(idx)}
                   >
-                    <img src={photo} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                    <Image 
+                      src={photo} 
+                      alt={`Thumb ${idx + 1}`} 
+                      fill 
+                      className="object-cover" 
+                      unoptimized 
+                    />
                   </div>
                 ))}
               </div>

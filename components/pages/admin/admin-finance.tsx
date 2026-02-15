@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,7 +209,7 @@ export default function AdminFinance() {
         </Card>
       </div>
 
-      <div className="flex items-center gap-1 border-b">
+      <div className="flex items-center gap-1 border-b overflow-x-auto scrollbar-hide">
         {tabs.map((tab) => (
           <button
             key={tab.key}

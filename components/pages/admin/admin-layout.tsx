@@ -13,7 +13,8 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Wallet, MessageSquare, Truck, Settings, Sparkles } from "lucide-react";
+import { LayoutDashboard, Users, Wallet, MessageSquare, Truck, Settings, Sparkles, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
@@ -31,6 +32,7 @@ const sidebarStyle = {
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { logout } = useAuth();
 
   return (
     <SidebarProvider style={sidebarStyle}>
@@ -79,6 +81,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     <Settings />
                     <span>Settings</span>
                   </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => logout()}
+                  tooltip="Logout"
+                  data-testid="nav-logout"
+                >
+                  <LogOut />
+                  <span>Logout</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

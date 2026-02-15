@@ -45,6 +45,7 @@ export function useAuth() {
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/user"], null);
       queryClient.clear();
+      window.location.href = "/";
     },
   });
 

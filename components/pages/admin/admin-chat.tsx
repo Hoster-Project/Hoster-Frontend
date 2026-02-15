@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -6,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, MessageSquare, Headphones } from "lucide-react";
+import { Send, MessageSquare, Headphones, ChevronLeft } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 
@@ -147,7 +149,7 @@ export default function AdminChat() {
 
   return (
     <div className="flex h-[calc(100vh-57px)]">
-      <div className="w-80 border-r flex flex-col flex-shrink-0">
+      <div className={`border-r flex-col flex-shrink-0 w-full md:w-80 ${hasSelection ? "hidden md:flex" : "flex"}`}>
         <div className="p-3 border-b">
           <div className="flex items-center gap-1">
             <Button
@@ -278,10 +280,21 @@ export default function AdminChat() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex-col min-w-0 ${hasSelection ? "flex" : "hidden md:flex"}`}>
         {hasSelection ? (
           <>
             <div className="p-4 border-b flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden -ml-2 mr-1 h-8 w-8"
+                onClick={() => {
+                  setSelectedConvId(null);
+                  setSelectedSupportUserId(null);
+                }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
               <Avatar className="h-8 w-8 flex-shrink-0">
                 <AvatarFallback className="text-xs font-semibold">
                   {activeTab === "channels" && selectedConversation

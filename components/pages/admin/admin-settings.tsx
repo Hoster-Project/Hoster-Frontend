@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -189,31 +191,35 @@ export default function AdminSettings() {
           ) : teamMembers && teamMembers.length > 0 ? (
             <div className="space-y-3">
               {teamMembers.map((member) => (
-                <div key={member.id} className="flex items-center gap-3" data-testid={`team-member-${member.id}`}>
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={member.profileImageUrl || undefined} />
-                    <AvatarFallback className="text-xs">
-                      {member.firstName?.[0] || member.email[0].toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">
-                      {[member.firstName, member.lastName].filter(Boolean).join(" ") || member.email}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-muted/20 rounded-lg" data-testid={`team-member-${member.id}`}>
+                  <div className="flex items-center gap-3 flex-1">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={member.profileImageUrl || undefined} />
+                      <AvatarFallback className="text-xs">
+                        {member.firstName?.[0] || member.email[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">
+                        {[member.firstName, member.lastName].filter(Boolean).join(" ") || member.email}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                    </div>
                   </div>
-                  <Badge variant="secondary" className="text-[10px]">{member.role}</Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setNewRole(member.role);
-                      setShowRoleDialog(member);
-                    }}
-                    data-testid={`button-change-role-${member.id}`}
-                  >
-                    Change Role
-                  </Button>
+                  <div className="flex items-center gap-3 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
+                    <Badge variant="secondary" className="text-[10px]">{member.role}</Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNewRole(member.role);
+                        setShowRoleDialog(member);
+                      }}
+                      data-testid={`button-change-role-${member.id}`}
+                    >
+                      Change Role
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

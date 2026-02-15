@@ -1,4 +1,7 @@
+"use client";
+
 import { useState } from "react";
+import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +32,7 @@ import {
   Clock,
   XCircle,
   Send,
-  Image,
+  Image as ImageIcon,
   MessageSquare,
   Loader2,
 } from "lucide-react";
@@ -608,7 +611,7 @@ export default function SettingsCleaningPage() {
                               <p className="text-xs text-muted-foreground">{report.visitDate}</p>
                             </div>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Image className="h-3 w-3" />
+                              <ImageIcon className="h-3 w-3" />
                               {report.photos?.length || 0} photos
                             </div>
                           </div>
@@ -672,7 +675,13 @@ export default function SettingsCleaningPage() {
                   onClick={() => { setSelectedPhotoIdx(idx); setPhotoViewerOpen(true); }}
                   data-testid={`visit-photo-${idx}`}
                 >
-                  <img src={photo} alt={`Visit photo ${idx + 1}`} className="w-full h-full object-cover" />
+                  <Image 
+                    src={photo} 
+                    alt={`Visit photo ${idx + 1}`} 
+                    fill 
+                    className="object-cover" 
+                    unoptimized 
+                  />
                 </div>
               ))}
             </div>
@@ -681,10 +690,13 @@ export default function SettingsCleaningPage() {
               <DialogContent className="max-w-lg p-0">
                 <div className="relative">
                   {selectedReport.photos?.[selectedPhotoIdx] && (
-                    <img
+                    <Image
                       src={selectedReport.photos[selectedPhotoIdx]}
                       alt={`Photo ${selectedPhotoIdx + 1}`}
-                      className="w-full rounded-md"
+                      width={600}
+                      height={600}
+                      className="w-full rounded-md object-contain"
+                      unoptimized
                     />
                   )}
                   <div className="absolute bottom-4 left-0 right-0 text-center">

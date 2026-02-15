@@ -16,6 +16,7 @@ import {
   Check,
   ChevronDown,
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import heroImage from "@assets/images/hero-landing.png";
 import featureDashboard from "@assets/images/feature-dashboard.png";
 import featureInbox from "@assets/images/feature-inbox.png";
@@ -113,6 +114,7 @@ export default function LandingPage() {
     };
   }, []);
 
+  const { user } = useAuth();
   const pricingRef = useRef<HTMLDivElement>(null);
   const featuresRef = useRef<HTMLDivElement>(null);
 
@@ -130,12 +132,20 @@ export default function LandingPage() {
             <button onClick={() => scrollTo(pricingRef)} className="text-sm font-medium text-muted-foreground transition-colors" data-testid="link-nav-pricing">Pricing</button>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/login">
-              <Button variant="ghost" size="sm" data-testid="button-nav-login">Log in</Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm" data-testid="button-nav-signup">Sign up</Button>
-            </Link>
+            {user ? (
+              <Link href="/dashboard">
+                <Button size="sm" data-testid="button-nav-dashboard">Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm" data-testid="button-nav-login">Log in</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button size="sm" data-testid="button-nav-signup">Sign up</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -162,12 +172,21 @@ export default function LandingPage() {
                 Sync calendars, unify messages, automate check-ins.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Link href="/signup">
-                  <Button size="lg" className="px-8 text-base font-bold" data-testid="button-hero-signup">
-                    Get started free
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+                {user ? (
+                  <Link href="/dashboard">
+                    <Button size="lg" className="px-8 text-base font-bold" data-testid="button-hero-dashboard">
+                      Go to Dashboard
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href="/signup">
+                    <Button size="lg" className="px-8 text-base font-bold" data-testid="button-hero-signup">
+                      Get started free
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
                 <Button size="lg" variant="outline" onClick={() => scrollTo(featuresRef)} className="px-8 text-base font-bold bg-white/10 backdrop-blur-sm border-white/30 text-white" data-testid="button-hero-features">
                   See how it works
                 </Button>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
 import * as Yup from "yup";
 
@@ -21,6 +25,19 @@ export default function LoginPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const router = useRouter();
+  const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (user && !isLoading) {
+      if (user.role === "provider") {
+        router.push("/provider");
+      } else if (user.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
+    }
+  }, [user, isLoading, router]);
 
   const loginMutation = useMutation({
     mutationFn: async (values: any) => {
@@ -29,7 +46,13 @@ export default function LoginPage() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/auth/user"], data);
-      router.push("/");
+      if (data.role === "provider") {
+        router.push("/provider");
+      } else if (data.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     },
     onError: (err: any) => {
       toast({

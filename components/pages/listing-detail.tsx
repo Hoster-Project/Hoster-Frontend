@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -54,23 +56,17 @@ import {
   WashingMachine,
 } from "lucide-react";
 import type { ChannelKey } from "@/lib/constants";
-import propertyBeach from "@assets/property-beach-studio.jpg";
-import propertyLoft from "@assets/property-downtown-loft.jpg";
-import propertyCabin from "@assets/property-mountain-cabin.jpg";
-import propertyRiverside from "@assets/property-riverside.jpg";
-import propertyVilla from "@assets/property-garden-villa.jpg";
-import propertyLake from "@assets/property-lake-house.jpg";
 
-import { StaticImageData } from "next/image";
-
-const LISTING_IMAGES: Record<string, StaticImageData | string> = {
-  "Sunny Beach Studio": propertyBeach,
-  "Downtown Loft": propertyLoft,
-  "Mountain View Cabin": propertyCabin,
-  "Riverside Apartment": propertyRiverside,
-  "Garden Villa": propertyVilla,
-  "Lake House Retreat": propertyLake,
+const LISTING_IMAGES: Record<string, string> = {
+  "Sunny Beach Studio": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop",
+  "Downtown Loft": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop",
+  "Mountain View Cabin": "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800&h=600&fit=crop",
+  "Riverside Apartment": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
+  "Garden Villa": "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop",
+  "Lake House Retreat": "https://images.unsplash.com/photo-1499793983394-e58fc2fce9bf?w=800&h=600&fit=crop",
 };
+
+const DEFAULT_PROPERTY_IMAGE = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop";
 
 const LISTING_DESCRIPTIONS: Record<string, string> = {
   "Sunny Beach Studio": "A bright and airy studio just steps from the beach. Perfect for couples or solo travelers looking for a relaxing getaway. Features a fully equipped kitchen, comfortable queen bed, and a private balcony with ocean views.",
@@ -123,8 +119,8 @@ const ALL_AMENITIES = [
 
 const DEFAULT_AMENITIES = ["Wi-Fi", "Parking", "AC", "Kitchen", "TV"];
 
-function getListingImage(name: string): StaticImageData | string {
-  return LISTING_IMAGES[name] || propertyBeach;
+function getListingImage(name: string): string {
+  return LISTING_IMAGES[name] || DEFAULT_PROPERTY_IMAGE;
 }
 
 function getAmenityIcon(label: string) {
@@ -497,7 +493,7 @@ export default function ListingDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div className="flex flex-col items-center gap-1 p-2.5 rounded-md border text-center">
                 <BedDouble className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm font-semibold">{listingBedrooms}</p>

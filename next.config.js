@@ -9,10 +9,19 @@ const nextConfig = {
         source: '/api/:path*',
         destination: 'http://localhost:5000/api/:path*',
       },
+      {
+        source: '/uploads/:path*',
+        destination: 'http://localhost:5000/uploads/:path*',
+      },
     ];
   },
   images: {
-    domains: [], // Add domains as needed
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
   },
   // output: 'standalone', // Uncomment if standalone output is required later
   // Silence workspace root warning
