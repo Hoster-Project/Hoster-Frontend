@@ -17,12 +17,40 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          sync: true 
+          sync: true
           script: |
-            cd ${{ secrets.PROJECT_PATH }}
+            # 1. Setup paths
+            NODE_PATH=/home/ubuntu/.nvm/versions/node/v25.6.1/bin
+            PROJECT_ROOT=${{ secrets.PROJECT_PATH }}
+            
+            cd $PROJECT_ROOT
+
+            # 2. Update Code
+            echo "Pulling latest code..."
             git pull origin main
-            npm install
-            npm run build
-            # Using --update-env ensures any new .env changes on the server are picked up
-            pm2 reload hoster-frontend --update-env || pm2 start npm --name "hoster-frontend" -- start
-            pm2 save
+
+            # 3. Clean Install & Build
+            echo "Installing dependencies..."
+            $NODE_PATH/npm install
+            
+            echo "Starting build process..."
+            # Using --max-old-space-size to prevent memory crashes during build
+            NODE_OPTIONS="--max-old-space-size=1024" $NODE_PATH/npm run build
+
+            # 4. Verify Build Success
+            if [ ! -d ".next" ]; then
+                echo "ERROR: .next directory not found. Build failed."
+                exit 1
+            fi
+
+            # 5. Restart PM2
+            echo "Restarting PM2..."
+            if $NODE_PATH/pm2 describe hoster-frontend > /dev/null 2>&1; then
+                $NODE_PATH/pm2 reload hoster-frontend --update-env
+            else
+                # We use --cwd to ensure PM2 knows where the project lives
+                $NODE_PATH/pm2 start $NODE_PATH/npm --name "hoster-frontend" --cwd $PROJECT_ROOT -- start
+            fi
+
+            $NODE_PATH/pm2 save
+            echo "Frontend Deployment Successful!"
