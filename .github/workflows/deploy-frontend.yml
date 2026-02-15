@@ -1,0 +1,28 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: SSH and Deploy Frontend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          sync: true 
+          script: |
+            cd ${{ secrets.PROJECT_PATH }}
+            git pull origin main
+            npm install
+            npm run build
+            # Using --update-env ensures any new .env changes on the server are picked up
+            pm2 reload hoster-frontend --update-env || pm2 start npm --name "hoster-frontend" -- start
+            pm2 save
