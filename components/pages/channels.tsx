@@ -112,7 +112,7 @@ export default function ChannelsPage() {
  >
  <ArrowLeft className="h-4 w-4" />
  </Button>
- <h1 className="text-lg font-semibold" data-testid="text-channels-title">Manage Channels</h1>
+ <h1 className="text-lg font-semibold text-primary" data-testid="text-channels-title">Manage Channels</h1>
  </div>
 
  <div className="mb-4">

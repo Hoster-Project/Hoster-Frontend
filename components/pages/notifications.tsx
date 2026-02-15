@@ -129,12 +129,12 @@ export default function NotificationsPage() {
             size="icon"
             aria-label="Go back"
  variant="ghost"
- onClick={() => setLocation("/")}
+ onClick={() => setLocation("/dashboard")}
  data-testid="button-back-notifications"
  >
  <ArrowLeft className="h-4 w-4" />
  </Button>
- <h1 className="text-lg font-semibold" data-testid="text-notifications-title">
+ <h1 className="text-lg font-semibold text-primary" data-testid="text-notifications-title">
  Notifications
  </h1>
  {unreadCount > 0 && (

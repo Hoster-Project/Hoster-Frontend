@@ -147,7 +147,7 @@ function LoginScreen({ onAuth }: { onAuth: () => void }) {
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-extrabold tracking-tight" data-testid="text-provider-auth-heading">
+            <h2 className="text-2xl font-extrabold tracking-tight text-primary" data-testid="text-provider-auth-heading">
               {mode === "login" ? "Welcome back" : "Create your account"}
             </h2>
             <p className="text-sm text-muted-foreground mt-2">

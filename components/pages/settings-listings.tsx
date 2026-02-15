@@ -133,7 +133,7 @@ export default function SettingsListingsPage() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-lg font-semibold" data-testid="text-listings-title">Units</h1>
+          <h1 className="text-lg font-semibold text-primary" data-testid="text-listings-title">Units</h1>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

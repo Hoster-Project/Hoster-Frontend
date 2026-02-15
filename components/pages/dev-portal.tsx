@@ -500,14 +500,14 @@ export default function DevPortalPage() {
                 size="icon"
                 aria-label="Go back"
                 variant="ghost"
-                onClick={() => setLocation("/")}
+                onClick={() => setLocation("/dashboard")}
                 data-testid="button-back-home"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="flex items-center gap-2">
                 <Settings2 className="h-5 w-5 text-primary" />
-                <h1 className="text-lg font-semibold" data-testid="text-dev-portal-title">Dev Portal</h1>
+                <h1 className="text-lg font-semibold text-primary" data-testid="text-dev-portal-title">Dev Portal</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">

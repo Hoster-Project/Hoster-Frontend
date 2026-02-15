@@ -108,7 +108,7 @@ export default function AdminFinance() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold" data-testid="text-finance-title">Finance</h2>
+        <h2 className="text-xl font-semibold text-primary" data-testid="text-finance-title">Finance</h2>
         <Badge variant="secondary" data-testid="badge-subscription-model">
           Subscription Revenue
         </Badge>

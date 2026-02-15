@@ -15,20 +15,21 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user) {
-        // Not logged in -> Redirect to login
-        router.push("/login");
-      } else if (!allowedRoles.includes(user.role)) {
-        // Logged in but wrong role -> Redirect to their dashboard
-        if (user.role === "admin" || user.role === "moderator") {
+    if (!isLoading && user) {
+      if (!allowedRoles.includes(user.role)) {
+        // Logged in but wrong role
+        if (user.role === "admin" && !window.location.pathname.startsWith("/admin")) {
           router.push("/admin");
-        } else if (user.role === "provider") {
+        } else if (user.role === "provider" && !window.location.pathname.startsWith("/provider")) {
           router.push("/provider");
-        } else {
+        } else if (user.role === "host" && !window.location.pathname.startsWith("/dashboard")) {
           router.push("/dashboard");
         }
+        // If none of the above match, or if they are already on the target page but still don't have access,
+        // we do NOT redirect to avoid loops. We let the component render the "Unauthorized" state below.
       }
+    } else if (!isLoading && !user) {
+       router.push("/");
     }
   }, [user, isLoading, router, allowedRoles]);
 
@@ -40,9 +41,13 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     );
   }
 
-  // Prevent flash of unauthorized content
+  // Prevent flash of unauthorized content while redirecting
   if (!user || !allowedRoles.includes(user.role)) {
-    return null;
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return <>{children}</>;

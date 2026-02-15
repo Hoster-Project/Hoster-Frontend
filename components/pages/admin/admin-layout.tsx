@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, Wallet, MessageSquare, Truck, Settings, Sparkles, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { BottomTabs } from "@/components/bottom-tabs";
 
 const navItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
@@ -98,10 +99,20 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center gap-3 border-b px-4 py-3 sticky top-0 bg-background z-50">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <h1 className="text-base font-semibold">Hoster Admin</h1>
+            <SidebarTrigger className="hidden md:flex" data-testid="button-sidebar-toggle" />
+            <h1 className="text-base font-semibold text-primary">Hoster Admin</h1>
           </header>
-          <main className="flex-1 overflow-auto">{children}</main>
+          <main className="flex-1 overflow-auto pb-16 md:pb-0">{children}</main>
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50">
+            <BottomTabs 
+              items={navItems.map(item => ({
+                path: item.url,
+                label: item.title === "Support Chat" ? "Chat" : item.title,
+                icon: item.icon,
+                testId: `tab-${item.title.toLowerCase().replace(/\s+/g, "-")}`
+              }))} 
+            />
+          </div>
         </div>
       </div>
     </SidebarProvider>

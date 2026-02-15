@@ -5,6 +5,8 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { BottomTabs } from "@/components/bottom-tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function AppLayout({ 
   children, 
@@ -20,17 +22,20 @@ export default function AppLayout({
   hideBottomTabs?: boolean;
 }) {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/");
+    }
+  }, [user, isLoading, router]);
+
+  if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (!user) {
-    return <>{children}</>;
   }
 
   return (
@@ -43,8 +48,7 @@ export default function AppLayout({
           {/* Mobile Header / Desktop Trigger */}
           {!hideMobileHeader && (
             <header className="flex h-14 items-center gap-2 border-b bg-background px-4 lg:h-[60px] md:hidden flex-shrink-0">
-               <SidebarTrigger className="md:hidden" />
-               <span className="font-bold text-lg">Hoster</span>
+               <span className="font-bold text-lg text-primary">Hoster</span>
             </header>
           )}
           

@@ -216,7 +216,7 @@ export default function ChatPage({ conversationId }: { conversationId: string })
  <div className="min-w-0 flex-1">
  <div className="flex items-center gap-2">
  <h1
- className="text-sm font-semibold truncate"
+ className="text-sm font-semibold truncate text-primary"
  data-testid="text-guest-name"
  >
  {conversation.guestName}

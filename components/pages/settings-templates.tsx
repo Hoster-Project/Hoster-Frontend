@@ -119,7 +119,7 @@ export default function SettingsTemplatesPage() {
             <ArrowLeft className="h-4 w-4" />
             <span>Go back</span>
           </button>
-          <h1 className="text-lg font-semibold" data-testid="text-templates-title">Templates</h1>
+          <h1 className="text-lg font-semibold text-primary" data-testid="text-templates-title">Templates</h1>
         </div>
         {!creatingTemplate && (
           <Button

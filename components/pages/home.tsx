@@ -298,7 +298,7 @@ export default function HomePage() {
             </Avatar>
           </div>
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-primary">Dashboard</h1>
             <p className="text-muted-foreground">
               Welcome back, {user?.firstName || "Host"}
             </p>

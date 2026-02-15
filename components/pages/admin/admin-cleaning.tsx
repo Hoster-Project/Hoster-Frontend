@@ -103,7 +103,7 @@ export default function AdminCleaningPage() {
   return (
     <div className="p-6 space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold" data-testid="text-admin-cleaning-title">Cleaning Marketplace</h1>
+        <h1 className="text-2xl font-bold text-primary" data-testid="text-admin-cleaning-title">Cleaning Marketplace</h1>
         <p className="text-sm text-muted-foreground mt-1">Monitor cleaning service subscriptions, visit reports, and host reviews.</p>
       </div>
 

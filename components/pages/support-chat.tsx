@@ -64,7 +64,7 @@ export default function SupportChatPage() {
           <ArrowLeft className="h-4 w-4" />
           <span>Go back</span>
         </button>
-        <h1 className="text-lg font-semibold" data-testid="text-chat-title">Chat with Us</h1>
+        <h1 className="text-lg font-semibold text-primary" data-testid="text-chat-title">Chat with Us</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages-container">

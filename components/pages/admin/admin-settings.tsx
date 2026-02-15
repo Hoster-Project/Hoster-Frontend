@@ -131,7 +131,7 @@ export default function AdminSettings() {
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-xl font-semibold" data-testid="text-settings-title">Settings</h2>
+      <h2 className="text-xl font-semibold text-primary" data-testid="text-settings-title">Settings</h2>
 
       <Card data-testid="card-profile-settings">
         <CardHeader>

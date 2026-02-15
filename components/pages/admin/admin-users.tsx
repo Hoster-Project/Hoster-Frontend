@@ -118,7 +118,7 @@ export default function AdminUsers() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold" data-testid="text-users-title">Users</h2>
+        <h2 className="text-xl font-semibold text-primary" data-testid="text-users-title">Users</h2>
         <Button onClick={() => setShowAddUser(true)} data-testid="button-add-user">
           <UserPlus className="h-4 w-4 mr-1.5" />
           Add User

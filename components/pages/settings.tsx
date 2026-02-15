@@ -104,7 +104,7 @@ export default function SettingsPage() {
 
   return (
     <div className="px-4 py-4 space-y-2.5 pb-24">
-      <h1 className="text-lg font-semibold mb-4" data-testid="text-settings-title">Settings</h1>
+      <h1 className="text-lg font-semibold mb-4 text-primary" data-testid="text-settings-title">Settings</h1>
 
       <SettingsLink
         icon={Globe}

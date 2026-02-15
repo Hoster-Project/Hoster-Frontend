@@ -207,7 +207,7 @@ export default function AdminProviders() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold" data-testid="text-providers-title">Providers</h2>
+        <h2 className="text-xl font-semibold text-primary" data-testid="text-providers-title">Providers</h2>
       </div>
 
       <div className="flex items-center gap-1 border-b overflow-x-auto scrollbar-hide">

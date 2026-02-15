@@ -254,7 +254,7 @@ export default function SettingsCleaningPage() {
         <Button size="icon" aria-label="Go back" variant="ghost" onClick={goBack} data-testid="button-back-cleaning">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-lg font-semibold" data-testid="text-cleaning-title">{getTitle()}</h1>
+        <h1 className="text-lg font-semibold text-primary" data-testid="text-cleaning-title">{getTitle()}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto">

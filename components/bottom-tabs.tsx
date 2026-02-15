@@ -3,29 +3,27 @@ import { usePathname } from "next/navigation";
 import { Home, CalendarDays, MessageSquare, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const tabs = [
-  { path: "/", label: "Home", icon: Home, testId: "tab-home" },
-  {
-    path: "/calendar",
-    label: "Calendar",
-    icon: CalendarDays,
-    testId: "tab-calendar",
-  },
-  {
-    path: "/inbox",
-    label: "Inbox",
-    icon: MessageSquare,
-    testId: "tab-inbox",
-  },
-  {
-    path: "/settings",
-    label: "Settings",
-    icon: Settings,
-    testId: "tab-settings",
-  },
+export interface TabItem {
+  path: string;
+  label: string;
+  icon: React.ElementType;
+  testId?: string;
+}
+
+export const defaultTabs: TabItem[] = [
+  { path: "/dashboard", label: "Home", icon: Home, testId: "tab-home" },
+  { path: "/calendar", label: "Calendar", icon: CalendarDays, testId: "tab-calendar" },
+  { path: "/inbox", label: "Inbox", icon: MessageSquare, testId: "tab-inbox" },
+  { path: "/settings", label: "Settings", icon: Settings, testId: "tab-settings" },
 ];
 
-export function BottomTabs({ unreadCount }: { unreadCount?: number }) {
+export function BottomTabs({ 
+  unreadCount,
+  items = defaultTabs 
+}: { 
+  unreadCount?: number;
+  items?: TabItem[];
+}) {
   const pathname = usePathname();
 
   return (
@@ -33,19 +31,19 @@ export function BottomTabs({ unreadCount }: { unreadCount?: number }) {
       className="flex-shrink-0 border-t bg-background safe-area-bottom"
       data-testid="bottom-tabs"
     >
-      <div className="flex items-center justify-around px-2">
-        {tabs.map((tab) => {
+      <div className="grid w-full" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
+        {items.map((tab) => {
           const isActive =
-            tab.path === "/"
-              ? pathname === "/"
+            tab.path === "/dashboard" || tab.path === "/admin"
+              ? pathname === tab.path
               : pathname.startsWith(tab.path);
           const Icon = tab.icon;
 
           return (
-            <Link key={tab.path} href={tab.path}>
+            <Link key={tab.path} href={tab.path} className="w-full">
               <button
                 className={cn(
-                  "relative flex flex-col items-center gap-1 px-4 pt-2.5 pb-2 transition-colors min-w-[60px]",
+                  "relative flex w-full flex-col items-center gap-1 pt-2.5 pb-2 transition-colors",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground"
@@ -53,7 +51,7 @@ export function BottomTabs({ unreadCount }: { unreadCount?: number }) {
                 data-testid={tab.testId}
               >
                 {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-6 rounded-full bg-primary" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-8 rounded-full bg-primary" />
                 )}
                 <div className="relative">
                   <Icon
@@ -73,7 +71,7 @@ export function BottomTabs({ unreadCount }: { unreadCount?: number }) {
                 </div>
                 <span
                   className={cn(
-                    "text-xs",
+                    "text-[10px] truncate w-full px-0.5",
                     isActive ? "font-semibold" : "font-medium"
                   )}
                 >

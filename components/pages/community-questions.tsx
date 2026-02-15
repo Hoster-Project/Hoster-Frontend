@@ -130,7 +130,7 @@ export default function CommunityQuestionsPage() {
           <ArrowLeft className="h-4 w-4" />
           <span>Go back</span>
         </button>
-        <h1 className="text-lg font-semibold flex-1" data-testid="text-community-title">Community Questions</h1>
+        <h1 className="text-lg font-semibold flex-1 text-primary" data-testid="text-community-title">Community Questions</h1>
         <Button
           size="sm"
           onClick={() => setAskDialogOpen(true)}

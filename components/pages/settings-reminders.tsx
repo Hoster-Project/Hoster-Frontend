@@ -112,7 +112,7 @@ export default function SettingsRemindersPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-lg font-semibold" data-testid="text-reminders-title">Reminders</h1>
+        <h1 className="text-lg font-semibold text-primary" data-testid="text-reminders-title">Reminders</h1>
       </div>
 
       <div className="px-4 py-4 space-y-4">

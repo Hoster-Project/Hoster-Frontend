@@ -201,12 +201,12 @@ export default function ProfilePage() {
           size="icon"
           aria-label="Go back"
           variant="ghost"
-          onClick={() => setLocation("/")}
+          onClick={() => setLocation("/dashboard")}
           data-testid="button-back-profile"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-lg font-semibold" data-testid="text-profile-title">Edit Profile</h1>
+        <h1 className="text-lg font-semibold text-primary" data-testid="text-profile-title">Edit Profile</h1>
       </div>
 
       <div className="flex justify-center mb-6">
