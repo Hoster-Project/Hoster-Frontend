@@ -46,6 +46,9 @@ interface AdminUser {
   blocked: boolean;
   createdAt: string;
   subscriptionPlan: string;
+  accountStatus?: string;
+  emailVerified?: boolean;
+  invitationSentAt?: string | null;
 }
 
 const roles = ["All", "Host", "Provider"];
@@ -73,12 +76,24 @@ function getPlanBadgeVariant(plan: string) {
   }
 }
 
+function getStatusBadgeVariant(status?: string) {
+  switch (status) {
+    case "ACTIVE": return "default" as const;
+    case "VERIFIED": return "secondary" as const;
+    case "PASSWORD_SET": return "outline" as const;
+    case "PENDING": return "secondary" as const;
+    case "SUSPENDED": return "destructive" as const;
+    default: return "secondary" as const;
+  }
+}
+
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [showAddUser, setShowAddUser] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({
-    firstName: "", lastName: "", email: "", password: "",
+    firstName: "", lastName: "", email: "",
     role: "host", phone: "", country: "", companyName: "", subscriptionPlan: "light",
   });
   const { toast } = useToast();
@@ -103,15 +118,36 @@ export default function AdminUsers() {
       const res = await apiRequest("POST", "/api/admin/users", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setShowAddUser(false);
-      setNewUser({ firstName: "", lastName: "", email: "", password: "", role: "host", phone: "", country: "", companyName: "", subscriptionPlan: "light" });
-      toast({ title: "User created successfully" });
+      setNewUser({ firstName: "", lastName: "", email: "", role: "host", phone: "", country: "", companyName: "", subscriptionPlan: "light" });
+
+      if (data?.inviteSent) {
+        toast({ title: "User created", description: "Password creation email sent." });
+      } else if (data?.inviteUrl) {
+        setInviteLink(data.inviteUrl);
+        toast({ title: "User created", description: "SMTP not configured. Copy the invite link." });
+      } else {
+        toast({ title: "User created", description: "Invite email could not be sent." });
+      }
     },
     onError: (error: any) => {
       const msg = error?.message || "An unknown error occurred";
       toast({ title: "Failed to create user", description: msg, variant: "destructive" });
+    },
+  });
+
+  const resendInviteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("POST", `/api/admin/users/${userId}/resend-invitation`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation resent" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to resend invitation", description: error?.message || "", variant: "destructive" });
     },
   });
 
@@ -180,6 +216,11 @@ export default function AdminUsers() {
                       <Badge variant={getPlanBadgeVariant(user.subscriptionPlan)} data-testid={`badge-plan-${user.id}`}>
                         {user.subscriptionPlan}
                       </Badge>
+                      {user.accountStatus && (
+                        <Badge variant={getStatusBadgeVariant(user.accountStatus)} data-testid={`badge-status-${user.id}`}>
+                          {user.accountStatus}
+                        </Badge>
+                      )}
                       {user.blocked && (
                         <Badge variant="destructive" data-testid={`badge-blocked-${user.id}`}>
                           Blocked
@@ -213,6 +254,14 @@ export default function AdminUsers() {
                           <Eye className="h-4 w-4 mr-2" />
                           More Information
                         </DropdownMenuItem>
+                        {["PENDING", "PASSWORD_SET"].includes(user.accountStatus || "") && (
+                          <DropdownMenuItem
+                            onClick={() => resendInviteMutation.mutate(user.id)}
+                            data-testid={`button-resend-invite-${user.id}`}
+                          >
+                            Resend Invitation
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -260,14 +309,8 @@ export default function AdminUsers() {
                 data-testid="input-new-user-email"
               />
             </div>
-            <div className="space-y-1">
-              <Label>Password</Label>
-              <Input
-                type="password"
-                value={newUser.password}
-                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                data-testid="input-new-user-password"
-              />
+            <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
+              A password creation email will be sent to this user. The link expires in 1 hour.
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -312,10 +355,39 @@ export default function AdminUsers() {
             </Button>
             <Button
               onClick={() => createUserMutation.mutate(newUser)}
-              disabled={createUserMutation.isPending || !newUser.firstName || !newUser.email || !newUser.password}
+              disabled={createUserMutation.isPending || !newUser.firstName || !newUser.lastName || !newUser.email}
               data-testid="button-save-new-user"
             >
-              {createUserMutation.isPending ? "Creating..." : "Create User"}
+              {createUserMutation.isPending ? "Sending..." : "Send Invitation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!inviteLink} onOpenChange={(open) => (!open ? setInviteLink(null) : null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Invite Link</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              SMTP is not configured, so the invite email could not be sent. Copy this link and send it to the user (expires in 1 hour).
+            </p>
+            <Input value={inviteLink ?? ""} readOnly data-testid="input-invite-link" />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setInviteLink(null)} data-testid="button-close-invite-link">
+              Close
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!inviteLink) return;
+                await navigator.clipboard.writeText(inviteLink);
+                toast({ title: "Copied invite link" });
+              }}
+              data-testid="button-copy-invite-link"
+            >
+              Copy
             </Button>
           </DialogFooter>
         </DialogContent>

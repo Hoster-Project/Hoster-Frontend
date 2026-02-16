@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChannelIcon } from "@/components/channel-icon";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { formatMoney } from "@/lib/money";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -56,6 +58,7 @@ interface SettingsData {
 
 export default function SettingsListingsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const router = useRouter();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [unitName, setUnitName] = useState("");
@@ -207,7 +210,7 @@ export default function SettingsListingsPage() {
                     ))}
                     {listing.avgPrice !== null && (
                       <span className="text-xs text-muted-foreground ml-auto" data-testid={`text-avg-price-${listing.id}`}>
-                        ${listing.avgPrice}/avg
+                        {formatMoney(listing.avgPrice, listing.currency || user?.currency, { maximumFractionDigits: 0 })}/avg
                       </span>
                     )}
                   </div>

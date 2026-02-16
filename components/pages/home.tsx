@@ -50,6 +50,7 @@ import type { ChannelKey } from "@/lib/constants";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { formatMoney } from "@/lib/money";
 import eventFoodFestival from "@assets/event-food-festival.png";
 import eventMusicConcert from "@assets/event-music-concert.png";
 import eventArtExhibition from "@assets/event-art-exhibition.png";
@@ -225,6 +226,7 @@ export default function HomePage() {
  const [selectedReservation, setSelectedReservation] = useState<ReservationItem | null>(null);
  const [guestProfileReservation, setGuestProfileReservation] = useState<ReservationItem | null>(null);
  const { toast } = useToast();
+ const [dismissMappingAlert, setDismissMappingAlert] = useState(false);
 
  const { data, isLoading } = useQuery<DashboardData>({
  queryKey: ["/api/dashboard"],
@@ -365,7 +367,7 @@ export default function HomePage() {
                 </div>
               </div>
               <p className="text-xl font-extrabold" data-testid="text-month-revenue">
-                ${data?.monthRevenue ? data.monthRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "0"}
+                {formatMoney(data?.monthRevenue, user?.currency, { maximumFractionDigits: 0 })}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wide font-semibold">This month</p>
             </Card>
@@ -387,7 +389,7 @@ export default function HomePage() {
                   Link Airbnb, Booking.com, Expedia, or TripAdvisor to start managing your rentals.
                 </p>
               </div>
-              <Link href="/settings">
+              <Link href="/channels">
                 <Button data-testid="button-connect-channels">
                   Connect channels
                 </Button>
@@ -411,10 +413,10 @@ export default function HomePage() {
           </div>
         )}
 
-        {!isLoading && data?.hasMappingIssue && (
+        {!isLoading && data?.hasMappingIssue && !dismissMappingAlert && (
           <div
             className="flex items-center gap-3 p-3.5 rounded-md bg-amber-500/10 cursor-pointer hover-elevate active-elevate-2"
-            onClick={() => setLocation("/settings")}
+            onClick={() => setLocation("/settings/listings")}
             data-testid="alert-mapping-issue"
           >
             <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
@@ -422,6 +424,18 @@ export default function HomePage() {
               <p className="text-xs font-medium text-amber-700">Listings need mapping</p>
               <p className="text-xs text-amber-600/80 mt-0.5">Some listings are not mapped to all channels.</p>
             </div>
+            <button
+              type="button"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-amber-700/70 hover:bg-amber-500/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDismissMappingAlert(true);
+              }}
+              aria-label="Dismiss"
+              data-testid="button-dismiss-mapping-issue"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <ChevronRight className="h-4 w-4 text-amber-600/60 flex-shrink-0" />
           </div>
         )}
@@ -482,7 +496,7 @@ export default function HomePage() {
                     </div>
                     {newestPending.totalAmount && (
                       <span className="text-sm font-bold flex-shrink-0" data-testid="text-pending-amount">
-                        ${parseFloat(newestPending.totalAmount as any).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        {formatMoney(newestPending.totalAmount as any, newestPending.currency || user?.currency)}
                       </span>
                     )}
                   </div>
@@ -559,7 +573,7 @@ export default function HomePage() {
                         </div>
                         {res.totalAmount && (
                           <span className="text-sm font-semibold flex-shrink-0">
-                            ${parseFloat(res.totalAmount as any).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {formatMoney(res.totalAmount as any, res.currency || user?.currency)}
                           </span>
                         )}
                       </div>
@@ -812,7 +826,7 @@ export default function HomePage() {
    <span className="text-xs text-muted-foreground">{res.listingName}</span>
    {res.totalAmount && (
    <span className="text-sm font-bold" data-testid="text-guest-total">
-   ${parseFloat(res.totalAmount as any).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+   {formatMoney(res.totalAmount as any, res.currency || user?.currency)}
    </span>
    )}
    </div>
@@ -894,7 +908,7 @@ export default function HomePage() {
    <span className="text-xs text-muted-foreground">{res.listingName}</span>
    {res.totalAmount && (
    <span className="text-sm font-bold">
-   ${parseFloat(res.totalAmount as any).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+   {formatMoney(res.totalAmount as any, res.currency || user?.currency)}
    </span>
    )}
    </div>

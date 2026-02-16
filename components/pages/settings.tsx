@@ -51,7 +51,15 @@ interface SettingsLinkProps {
   extra?: React.ReactNode;
 }
 
-function SettingsLink({ icon: Icon, title, description, href, count, testId, extra }: SettingsLinkProps) {
+function SettingsLink({
+  icon: Icon,
+  title,
+  description,
+  href,
+  count,
+  testId,
+  extra,
+}: SettingsLinkProps) {
   const router = useRouter();
   return (
     <div
@@ -70,7 +78,9 @@ function SettingsLink({ icon: Icon, title, description, href, count, testId, ext
               </Badge>
             )}
           </div>
-          <p className="text-muted-foreground mt-0.5 text-[13px] font-semibold">{description}</p>
+          <p className="text-muted-foreground mt-0.5 text-[13px] font-semibold">
+            {description}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
@@ -100,11 +110,19 @@ export default function SettingsPage() {
     );
   }
 
-  const connectedChannels = data?.channels.filter(c => c.status === "CONNECTED" || c.status === "ERROR") || [];
+  const connectedChannels =
+    data?.channels.filter(
+      (c) => c.status === "CONNECTED" || c.status === "ERROR",
+    ) || [];
 
   return (
     <div className="px-4 py-4 space-y-2.5 pb-24">
-      <h1 className="text-lg font-semibold mb-4 text-primary" data-testid="text-settings-title">Settings</h1>
+      <h1
+        className="text-lg font-semibold mb-4 text-primary"
+        data-testid="text-settings-title"
+      >
+        Settings
+      </h1>
 
       <SettingsLink
         icon={Globe}
@@ -143,14 +161,6 @@ export default function SettingsPage() {
         href="/settings/templates"
         count={data?.templates?.length || 0}
         testId="link-templates"
-      />
-
-      <SettingsLink
-        icon={Bell}
-        title="Reminders"
-        description="Configure notifications and alerts"
-        href="/settings/reminders"
-        testId="link-reminders"
       />
 
       <SettingsLink

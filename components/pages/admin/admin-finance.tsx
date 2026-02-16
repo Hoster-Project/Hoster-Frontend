@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/use-auth";
+import { formatMoney } from "@/lib/money";
 import {
   DollarSign,
   TrendingUp,
@@ -60,10 +62,6 @@ const planColors: Record<string, string> = {
   expanding: "#8b5cf6",
 };
 
-function formatCurrency(value: number): string {
-  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
 function getInitials(firstName: string | null, lastName: string | null, email: string): string {
   if (firstName || lastName) {
     return [firstName?.[0], lastName?.[0]].filter(Boolean).join("").toUpperCase();
@@ -81,6 +79,7 @@ type TabKey = "overview" | "subscribers";
 export default function AdminFinance() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const { data, isLoading } = useQuery<FinanceData>({
     queryKey: ["/api/admin/finance"],
@@ -124,7 +123,7 @@ export default function AdminFinance() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold" data-testid="text-total-revenue">
-              {formatCurrency(overview?.totalRevenue ?? 0)}
+              {formatMoney(overview?.totalRevenue ?? 0, user?.currency, { maximumFractionDigits: 0 })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">All-time booking revenue</p>
           </CardContent>
@@ -139,7 +138,7 @@ export default function AdminFinance() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold" data-testid="text-mrr">
-              {formatCurrency(overview?.mrr ?? 0)}
+              {formatMoney(overview?.mrr ?? 0, user?.currency, { maximumFractionDigits: 0 })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Monthly recurring revenue</p>
           </CardContent>
@@ -154,7 +153,7 @@ export default function AdminFinance() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold" data-testid="text-arr">
-              {formatCurrency(overview?.arr ?? 0)}
+              {formatMoney(overview?.arr ?? 0, user?.currency, { maximumFractionDigits: 0 })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Annual recurring revenue</p>
           </CardContent>
@@ -169,7 +168,7 @@ export default function AdminFinance() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold" data-testid="text-provider-commission">
-              {formatCurrency(overview?.providerCommission ?? 0)}
+              {formatMoney(overview?.providerCommission ?? 0, user?.currency, { maximumFractionDigits: 0 })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Est. provider payouts</p>
           </CardContent>
@@ -243,7 +242,7 @@ export default function AdminFinance() {
                         <Crown className="h-4 w-4" style={{ color: planColors[pd.plan] || "#94a3b8" }} />
                         <span className="text-sm font-medium">{pd.name}</span>
                         <span className="text-xs text-muted-foreground">
-                          {pd.price === 0 ? "Free" : `$${pd.price}/mo`}
+                          {pd.price === 0 ? "Free" : `${formatMoney(pd.price, user?.currency)}/mo`}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-sm">
@@ -305,7 +304,7 @@ export default function AdminFinance() {
                         {sub.planName}
                       </Badge>
                       <span className="text-sm font-semibold" data-testid={`text-sub-price-${sub.userId}`}>
-                        {sub.price === 0 ? "Free" : `$${sub.price}/mo`}
+                        {sub.price === 0 ? "Free" : `${formatMoney(sub.price, user?.currency)}/mo`}
                       </span>
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -324,7 +323,7 @@ export default function AdminFinance() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Price</p>
-                          <p className="font-medium">{sub.price === 0 ? "Free" : `$${sub.price}/mo`}</p>
+                          <p className="font-medium">{sub.price === 0 ? "Free" : `${formatMoney(sub.price, user?.currency)}/mo`}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Units</p>

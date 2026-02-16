@@ -66,8 +66,15 @@ export default function SettingsMaintenancePage() {
                 </span>
               </div>
             </div>
-            <Button size="sm" variant="outline" data-testid={`button-contact-maintenance-${item.id}`}>
-              Contact
+            <Button
+              size="sm"
+              variant="outline"
+              asChild
+              data-testid={`button-contact-maintenance-${item.id}`}
+            >
+              <a href={`tel:${item.phone.replace(/\s+/g, "")}`} aria-label={`Call ${item.name}`}>
+                Contact
+              </a>
             </Button>
           </div>
         ))}

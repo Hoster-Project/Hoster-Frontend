@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
+import { formatMoney } from "@/lib/money";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -20,6 +21,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import {
@@ -102,6 +110,7 @@ function getCroppedCanvas(
 
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
 import * as Yup from "yup";
+import { CURRENCIES } from "@/lib/currencies";
 
 const ProfileSchema = Yup.object().shape({
   firstName: Yup.string().required("First name is required"),
@@ -109,8 +118,10 @@ const ProfileSchema = Yup.object().shape({
   email: Yup.string().email("Invalid email").required("Email is required"),
   phone: Yup.string(),
   country: Yup.string(),
+  city: Yup.string(),
   companyName: Yup.string(),
   crNumber: Yup.string(),
+  currency: Yup.string().required("Currency is required"),
 });
 
 export default function ProfilePage() {
@@ -125,6 +136,7 @@ export default function ProfilePage() {
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState<Crop>();
+  const [currencySearch, setCurrencySearch] = useState("");
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -138,6 +150,26 @@ export default function ProfilePage() {
     },
     onError: () => {
       toast({ title: "Failed to update profile", variant: "destructive" });
+    },
+  });
+
+  const verifyEmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/request-email-verification");
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.verificationEmailSent) {
+        toast({ title: "Verification email sent", description: "Check your inbox." });
+      } else if (data?.verificationUrl) {
+        toast({ title: "SMTP not configured", description: "Verification link returned (dev mode)." });
+        window.open(data.verificationUrl, "_blank");
+      } else {
+        toast({ title: "Could not send verification email", variant: "destructive" });
+      }
+    },
+    onError: () => {
+      toast({ title: "Could not send verification email", variant: "destructive" });
     },
   });
 
@@ -296,8 +328,10 @@ export default function ProfilePage() {
           email: user.email || "",
           phone: user.phone || "",
           country: user.country || "",
+          city: (user as any).city || "",
           companyName: (user as any).companyName || "",
           crNumber: (user as any).crNumber || "",
+          currency: (user as any).currency || "USD",
         }}
         validationSchema={ProfileSchema}
         onSubmit={(values: any, { setSubmitting }: FormikHelpers<any>) => {
@@ -309,14 +343,16 @@ export default function ProfilePage() {
               email: values.email.trim(),
               phone: values.phone?.trim(),
               country: values.country?.trim(),
+              city: values.city?.trim(),
               companyName: values.companyName?.trim(),
               crNumber: values.crNumber?.trim(),
+              currency: values.currency,
             },
             { onSettled: () => setSubmitting(false) }
           );
         }}
       >
-        {({ isSubmitting, errors, touched }: { isSubmitting: boolean; errors: any; touched: any }) => (
+        {({ isSubmitting, errors, touched, values, setFieldValue }: { isSubmitting: boolean; errors: any; touched: any; values: any; setFieldValue: any }) => (
           <Form className="space-y-4">
             <Card className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -361,6 +397,23 @@ export default function ProfilePage() {
                   data-testid="input-email"
                 />
                 <ErrorMessage name="email" component="div" className="text-xs text-destructive" />
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Badge variant={user?.emailVerifiedAt ? "secondary" : "destructive"} data-testid="badge-email-verification">
+                    {user?.emailVerifiedAt ? "Email verified" : "Email not verified"}
+                  </Badge>
+                  {!user?.emailVerifiedAt && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={verifyEmailMutation.isPending}
+                      onClick={() => verifyEmailMutation.mutate()}
+                      data-testid="button-send-verification-email"
+                    >
+                      {verifyEmailMutation.isPending ? "Sending..." : "Send verification email"}
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -388,6 +441,71 @@ export default function ProfilePage() {
                   data-testid="input-country"
                 />
                 <ErrorMessage name="country" component="div" className="text-xs text-destructive" />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Globe className="h-3 w-3" />
+                  City
+                </Label>
+                <Field
+                  as={Input}
+                  name="city"
+                  placeholder="(Optional)"
+                  data-testid="input-city"
+                />
+                <ErrorMessage name="city" component="div" className="text-xs text-destructive" />
+              </div>
+            </Card>
+
+            <Card className="p-4 space-y-4 mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                App preferences
+              </p>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" />
+                  Currency
+                </Label>
+                <Select
+                  value={values.currency}
+                  onValueChange={(val) => {
+                    setCurrencySearch("");
+                    setFieldValue("currency", val);
+                  }}
+                >
+                  <SelectTrigger
+                    className={errors.currency && touched.currency ? "border-destructive" : ""}
+                    data-testid="select-currency"
+                  >
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="p-2">
+                      <Input
+                        value={currencySearch}
+                        onChange={(e) => setCurrencySearch(e.target.value)}
+                        placeholder="Search currency…"
+                        className="h-8"
+                        data-testid="input-currency-search"
+                      />
+                    </div>
+                    {CURRENCIES.filter((c) => {
+                      const q = currencySearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        c.code.toLowerCase().includes(q) ||
+                        c.name.toLowerCase().includes(q) ||
+                        c.symbol.toLowerCase().includes(q)
+                      );
+                    }).map((c) => (
+                      <SelectItem key={c.code} value={c.code} data-testid={`option-currency-${c.code.toLowerCase()}`}>
+                        {c.symbol} {c.code} - {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <ErrorMessage name="currency" component="div" className="text-xs text-destructive" />
               </div>
             </Card>
 
@@ -531,7 +649,7 @@ function SubscriptionSection() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {data.price === 0 ? "Free" : `$${data.price}/month`}
+              {data.price === 0 ? "Free" : `${formatMoney(data.price, user?.currency)}/month`}
             </p>
           </div>
           <div className="text-right">
@@ -574,7 +692,7 @@ function SubscriptionSection() {
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <span className="text-sm font-semibold">
-                    {plan.price === 0 ? "Free" : `$${plan.price}/mo`}
+                    {plan.price === 0 ? "Free" : `${formatMoney(plan.price, user?.currency)}/mo`}
                   </span>
                   {isCurrent ? (
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">

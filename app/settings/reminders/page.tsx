@@ -1,16 +1,16 @@
-import SettingsRemindersPage from '@/components/pages/settings-reminders';
-import AppLayout from '@/components/layout/app-layout';
-import { constructMetadata } from "@/lib/metadata";
+"use client";
 
-export const metadata = constructMetadata({
-  title: "Reminders | Hoster",
-  description: "Set up automated reminders for guests and staff.",
-});
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function Page() {
-  return (
-    <AppLayout>
-      <SettingsRemindersPage />
-    </AppLayout>
-  );
+/**
+ * Reminders section removed (consolidated into Automation).
+ * Redirect to automation settings.
+ */
+export default function RemindersRedirectPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/settings/automation");
+  }, [router]);
+  return null;
 }

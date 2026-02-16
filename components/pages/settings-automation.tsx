@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +21,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import {
@@ -67,25 +67,19 @@ import type {
   ListingConfigDetail,
   LegacyData,
 } from "./settings-automation.types";
+import { Formik, Form } from "formik";
 
 export default function SettingsAutomationPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setLocation = (path: string) => router.push(path);
   const [editingTemplate, setEditingTemplate] =
     useState<AutomationTemplate | null>(null);
-  const [templateBody, setTemplateBody] = useState("");
-  const [templateName, setTemplateName] = useState("");
   const [isCheckinTemplate, setIsCheckinTemplate] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [editingListing, setEditingListing] = useState<string | null>(null);
   const [applyAllMode, setApplyAllMode] = useState(false);
-  const [listingForm, setListingForm] = useState({
-    defaultCheckinTime: "",
-    doorCode: "",
-    wifiSsid: "",
-    wifiPassword: "",
-  });
 
   const { data: checkinData, isLoading: checkinLoading } =
     useQuery<CheckinData>({
@@ -102,45 +96,107 @@ export default function SettingsAutomationPage() {
 
   const { data: listingDetail } = useQuery<ListingConfigDetail>({
     queryKey: ["/api/listings", editingListing, "automation"],
-    enabled: !!editingListing,
+    enabled: !!editingListing && editingListing !== "apply-all",
   });
 
   const checkinSettingsMutation = useMutation({
     mutationFn: async (updates: Partial<CheckinSettings>) => {
-      console.log("[SettingsAutomation] Mutating checkin settings:", updates);
       await apiRequest("PUT", "/api/automation/checkin/settings", updates);
     },
+    onMutate: async (updates) => {
+      // Optimistically update UI so toggles flip immediately.
+      await queryClient.cancelQueries({
+        queryKey: ["/api/automation/checkin"],
+      });
+      await queryClient.cancelQueries({
+        queryKey: ["/api/automation/settings"],
+      });
+
+      const prevCheckin = queryClient.getQueryData<CheckinData>([
+        "/api/automation/checkin",
+      ]);
+      const prevLegacy = queryClient.getQueryData<LegacyData>([
+        "/api/automation/settings",
+      ]);
+
+      if (prevCheckin) {
+        queryClient.setQueryData<CheckinData>(["/api/automation/checkin"], {
+          ...prevCheckin,
+          settings: { ...prevCheckin.settings, ...updates },
+        });
+      }
+      if (prevLegacy?.settings) {
+        queryClient.setQueryData<LegacyData>(["/api/automation/settings"], {
+          ...prevLegacy,
+          settings: { ...prevLegacy.settings, ...updates },
+        } as LegacyData);
+      }
+
+      return { prevCheckin, prevLegacy };
+    },
     onSuccess: (_, variables) => {
-      console.log(
-        "[SettingsAutomation] Checkin mutation success. Updates:",
-        variables,
-      );
       // Invalidate BOTH query keys to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["/api/automation/checkin"] });
       queryClient.invalidateQueries({ queryKey: ["/api/automation/settings"] });
     },
-    onError: (error) => {
-      console.error("[SettingsAutomation] Checkin mutation error:", error);
+    onError: (error, _updates, ctx) => {
+      if (ctx?.prevCheckin) {
+        queryClient.setQueryData(["/api/automation/checkin"], ctx.prevCheckin);
+      }
+      if (ctx?.prevLegacy) {
+        queryClient.setQueryData(["/api/automation/settings"], ctx.prevLegacy);
+      }
       toast({ title: "Failed to update", variant: "destructive" });
     },
   });
 
   const legacySettingsMutation = useMutation({
     mutationFn: async (updates: Partial<AutomationSettings>) => {
-      console.log("[SettingsAutomation] Mutating legacy settings:", updates);
       await apiRequest("PUT", "/api/automation/settings", updates);
     },
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({
+        queryKey: ["/api/automation/settings"],
+      });
+      await queryClient.cancelQueries({
+        queryKey: ["/api/automation/checkin"],
+      });
+
+      const prevLegacy = queryClient.getQueryData<LegacyData>([
+        "/api/automation/settings",
+      ]);
+      const prevCheckin = queryClient.getQueryData<CheckinData>([
+        "/api/automation/checkin",
+      ]);
+
+      if (prevLegacy?.settings) {
+        queryClient.setQueryData<LegacyData>(["/api/automation/settings"], {
+          ...prevLegacy,
+          settings: { ...prevLegacy.settings, ...updates },
+        } as LegacyData);
+      }
+      if (prevCheckin) {
+        // A few settings live in the same table but are shown under check-in.
+        queryClient.setQueryData<CheckinData>(["/api/automation/checkin"], {
+          ...prevCheckin,
+          settings: { ...prevCheckin.settings, ...updates },
+        } as CheckinData);
+      }
+
+      return { prevLegacy, prevCheckin };
+    },
     onSuccess: (_, variables) => {
-      console.log(
-        "[SettingsAutomation] Legacy mutation success. Updates:",
-        variables,
-      );
       // Invalidate BOTH query keys to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["/api/automation/settings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/automation/checkin"] });
     },
-    onError: (error) => {
-      console.error("[SettingsAutomation] Legacy mutation error:", error);
+    onError: (error, _updates, ctx) => {
+      if (ctx?.prevLegacy) {
+        queryClient.setQueryData(["/api/automation/settings"], ctx.prevLegacy);
+      }
+      if (ctx?.prevCheckin) {
+        queryClient.setQueryData(["/api/automation/checkin"], ctx.prevCheckin);
+      }
       toast({ title: "Failed to update", variant: "destructive" });
     },
   });
@@ -300,6 +356,35 @@ export default function SettingsAutomationPage() {
     return map;
   }, [warnings]);
 
+  const currentListingConfig = useMemo(() => {
+    if (!editingListing || editingListing === "apply-all") return undefined;
+    return listingConfigs.find((c) => c.listingId === editingListing);
+  }, [editingListing, listingConfigs]);
+
+  const listingInitialValues = useMemo(
+    () => ({
+      defaultCheckinTime: applyAllMode
+        ? ""
+        : currentListingConfig?.defaultCheckinTime || "",
+      doorCode: "",
+      wifiSsid: "",
+      wifiPassword: "",
+    }),
+    [applyAllMode, currentListingConfig],
+  );
+
+  const templateInitialValues = useMemo(
+    () => ({
+      name: editingTemplate?.name || "",
+      body: editingTemplate?.body || "",
+    }),
+    [editingTemplate],
+  );
+
+  const templateVariables = isCheckinTemplate
+    ? CHECKIN_TEMPLATE_VARIABLES
+    : LEGACY_TEMPLATE_VARIABLES;
+
   const findCheckinTemplate = useCallback(
     (key: string) => checkinTemplatesMap[key],
     [checkinTemplatesMap],
@@ -394,8 +479,6 @@ export default function SettingsAutomationPage() {
       const tpl = findCheckinTemplate(key);
       if (tpl) {
         setEditingTemplate(tpl);
-        setTemplateName(tpl.name);
-        setTemplateBody(tpl.body);
         setIsCheckinTemplate(true);
       }
     },
@@ -407,27 +490,16 @@ export default function SettingsAutomationPage() {
       const tpl = findLegacyTemplate(key);
       if (tpl) {
         setEditingTemplate(tpl);
-        setTemplateName(tpl.name);
-        setTemplateBody(tpl.body);
         setIsCheckinTemplate(false);
       }
     },
     [legacyTemplatesMap],
   );
 
-  const openListingEditor = useCallback(
-    (listingId: string) => {
-      setEditingListing(listingId);
-      const cfg = listingConfigs.find((c) => c.listingId === listingId);
-      setListingForm({
-        defaultCheckinTime: cfg?.defaultCheckinTime || "",
-        doorCode: "",
-        wifiSsid: "",
-        wifiPassword: "",
-      });
-    },
-    [listingConfigs],
-  );
+  const openListingEditor = useCallback((listingId: string) => {
+    setEditingListing(listingId);
+    setApplyAllMode(false);
+  }, []);
 
   const handleBrochureUpload = useCallback(
     (listingId: string, file: File) => {
@@ -681,12 +753,6 @@ export default function SettingsAutomationPage() {
                           onClick={() => {
                             setApplyAllMode(true);
                             setEditingListing("apply-all");
-                            setListingForm({
-                              defaultCheckinTime: "",
-                              doorCode: "",
-                              wifiSsid: "",
-                              wifiPassword: "",
-                            });
                           }}
                           data-testid="button-apply-all"
                         >
@@ -1038,77 +1104,89 @@ export default function SettingsAutomationPage() {
               Edit {editingTemplate?.name}
             </SheetTitle>
           </SheetHeader>
-          <div className="space-y-3 mt-4">
-            {!isCheckinTemplate && (
-              <div>
-                <Label className="text-xs text-muted-foreground">
-                  Template name
-                </Label>
-                <Input
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  className="mt-1"
-                  data-testid="input-template-name"
-                />
-              </div>
-            )}
-            <div>
-              <Label className="text-xs text-muted-foreground">
-                Message body
-              </Label>
-              <Textarea
-                value={templateBody}
-                onChange={(e) => setTemplateBody(e.target.value)}
-                className="mt-1 min-h-[120px] text-sm"
-                data-testid="input-template-body"
-              />
-              <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                {(isCheckinTemplate
-                  ? CHECKIN_TEMPLATE_VARIABLES
-                  : LEGACY_TEMPLATE_VARIABLES
-                ).map((v) => (
-                  <Badge
-                    key={v}
-                    variant="secondary"
-                    className="text-[11px] cursor-pointer"
-                    onClick={() => setTemplateBody((prev) => prev + " " + v)}
-                    data-testid={`badge-var-${v.replace(/[{}]/g, "")}`}
-                  >
-                    {v}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <Button
-              className="w-full"
-              onClick={() => {
-                if (editingTemplate) {
-                  if (isCheckinTemplate) {
-                    checkinTemplateMutation.mutate({
-                      key: editingTemplate.key,
-                      body: templateBody,
-                    });
-                  } else {
-                    legacyTemplateMutation.mutate({
-                      key: editingTemplate.key,
-                      name: templateName,
-                      body: templateBody,
-                    });
-                  }
-                }
-              }}
-              disabled={
-                checkinTemplateMutation.isPending ||
-                legacyTemplateMutation.isPending
+          <Formik
+            enableReinitialize
+            initialValues={templateInitialValues}
+            onSubmit={(values) => {
+              if (!editingTemplate) return;
+              if (isCheckinTemplate) {
+                checkinTemplateMutation.mutate({
+                  key: editingTemplate.key,
+                  body: values.body,
+                });
+              } else {
+                legacyTemplateMutation.mutate({
+                  key: editingTemplate.key,
+                  name: values.name,
+                  body: values.body,
+                });
               }
-              data-testid="button-save-template"
-            >
-              {checkinTemplateMutation.isPending ||
-              legacyTemplateMutation.isPending
-                ? "Saving..."
-                : "Save template"}
-            </Button>
-          </div>
+            }}
+          >
+            {({ values, handleChange, setFieldValue }) => (
+              <Form className="space-y-3 mt-4">
+                {!isCheckinTemplate && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Template name
+                    </Label>
+                    <Input
+                      name="name"
+                      value={values.name}
+                      onChange={handleChange}
+                      className="mt-1"
+                      data-testid="input-template-name"
+                    />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    Message body
+                  </Label>
+                  <Textarea
+                    name="body"
+                    value={values.body}
+                    onChange={handleChange}
+                    className="mt-1 min-h-[120px] text-sm"
+                    data-testid="input-template-body"
+                  />
+                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    {templateVariables.map((v) => (
+                      <Badge
+                        key={v}
+                        variant="secondary"
+                        className="text-[11px] cursor-pointer"
+                        onClick={() => {
+                          const separator = values.body ? " " : "";
+                          setFieldValue(
+                            "body",
+                            `${values.body || ""}${separator}${v}`,
+                          );
+                        }}
+                        data-testid={`badge-var-${v.replace(/[{}]/g, "")}`}
+                      >
+                        {v}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={
+                    checkinTemplateMutation.isPending ||
+                    legacyTemplateMutation.isPending
+                  }
+                  data-testid="button-save-template"
+                >
+                  {checkinTemplateMutation.isPending ||
+                  legacyTemplateMutation.isPending
+                    ? "Saving..."
+                    : "Save template"}
+                </Button>
+              </Form>
+            )}
+          </Formik>
         </SheetContent>
       </Sheet>
 
@@ -1139,217 +1217,200 @@ export default function SettingsAutomationPage() {
               each listing's existing value.
             </p>
           )}
-          <div className="space-y-4 mt-4">
-            <div>
-              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Clock className="h-3 w-3" /> Default check-in time
-              </Label>
-              <Input
-                type="time"
-                value={
-                  applyAllMode
-                    ? listingForm.defaultCheckinTime
-                    : listingDetail?.defaultCheckinTime ||
-                      listingForm.defaultCheckinTime
-                }
-                onChange={(e) =>
-                  setListingForm((prev) => ({
-                    ...prev,
-                    defaultCheckinTime: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                data-testid="input-checkin-time"
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <DoorOpen className="h-3 w-3" /> Door code / password
-              </Label>
-              <Input
-                type="text"
-                placeholder={
-                  !applyAllMode && listingDetail?.doorCode
-                    ? "Current code set (enter new to replace)"
-                    : "Enter door code"
-                }
-                value={listingForm.doorCode}
-                onChange={(e) =>
-                  setListingForm((prev) => ({
-                    ...prev,
-                    doorCode: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                data-testid="input-door-code"
-              />
-              {!applyAllMode &&
-                listingDetail?.doorCode &&
-                !listingForm.doorCode && (
-                  <p className="text-xs text-green-600 mt-1">
-                    Door code is set
-                  </p>
-                )}
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Wifi className="h-3 w-3" /> Wi-Fi network name (SSID)
-              </Label>
-              <Input
-                type="text"
-                placeholder={
-                  !applyAllMode && listingDetail?.wifiSsid
-                    ? "Current SSID set (enter new to replace)"
-                    : "Enter Wi-Fi name"
-                }
-                value={listingForm.wifiSsid}
-                onChange={(e) =>
-                  setListingForm((prev) => ({
-                    ...prev,
-                    wifiSsid: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                data-testid="input-wifi-ssid"
-              />
-              {!applyAllMode &&
-                listingDetail?.wifiSsid &&
-                !listingForm.wifiSsid && (
-                  <p className="text-xs text-green-600 mt-1">
-                    Wi-Fi name is set
-                  </p>
-                )}
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Wifi className="h-3 w-3" /> Wi-Fi password
-              </Label>
-              <Input
-                type="password"
-                placeholder={
-                  !applyAllMode && listingDetail?.wifiPassword
-                    ? "Current password set (enter new to replace)"
-                    : "Enter Wi-Fi password"
-                }
-                value={listingForm.wifiPassword}
-                onChange={(e) =>
-                  setListingForm((prev) => ({
-                    ...prev,
-                    wifiPassword: e.target.value,
-                  }))
-                }
-                className="mt-1"
-                data-testid="input-wifi-password"
-              />
-              {!applyAllMode &&
-                listingDetail?.wifiPassword &&
-                !listingForm.wifiPassword && (
-                  <p className="text-xs text-green-600 mt-1">
-                    Wi-Fi password is set
-                  </p>
-                )}
-            </div>
+          <Formik
+            enableReinitialize
+            initialValues={listingInitialValues}
+            onSubmit={(values) => {
+              if (applyAllMode) {
+                const data: any = {};
+                if (values.defaultCheckinTime)
+                  data.defaultCheckinTime = values.defaultCheckinTime;
+                if (values.doorCode) data.doorCode = values.doorCode;
+                if (values.wifiSsid) data.wifiSsid = values.wifiSsid;
+                if (values.wifiPassword)
+                  data.wifiPassword = values.wifiPassword;
+                applyAllMutation.mutate(data);
+              } else if (editingListing) {
+                const data: any = {};
+                const timeVal =
+                  values.defaultCheckinTime ||
+                  currentListingConfig?.defaultCheckinTime ||
+                  listingDetail?.defaultCheckinTime;
+                if (timeVal) data.defaultCheckinTime = timeVal;
+                if (values.doorCode) data.doorCode = values.doorCode;
+                if (values.wifiSsid) data.wifiSsid = values.wifiSsid;
+                if (values.wifiPassword)
+                  data.wifiPassword = values.wifiPassword;
+                listingConfigMutation.mutate({
+                  listingId: editingListing,
+                  data,
+                });
+              }
+            }}
+          >
+            {({ values, handleChange }) => (
+              <Form className="space-y-4 mt-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" /> Default check-in time
+                  </Label>
+                  <Input
+                    type="time"
+                    name="defaultCheckinTime"
+                    value={values.defaultCheckinTime}
+                    onChange={handleChange}
+                    className="mt-1"
+                    data-testid="input-checkin-time"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <DoorOpen className="h-3 w-3" /> Door code / password
+                  </Label>
+                  <Input
+                    type="text"
+                    name="doorCode"
+                    placeholder={
+                      !applyAllMode && listingDetail?.doorCode
+                        ? "Current code set (enter new to replace)"
+                        : "Enter door code"
+                    }
+                    value={values.doorCode}
+                    onChange={handleChange}
+                    className="mt-1"
+                    data-testid="input-door-code"
+                  />
+                  {!applyAllMode &&
+                    listingDetail?.doorCode &&
+                    !values.doorCode && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Door code is set
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Wifi className="h-3 w-3" /> Wi-Fi network name (SSID)
+                  </Label>
+                  <Input
+                    type="text"
+                    name="wifiSsid"
+                    placeholder={
+                      !applyAllMode && listingDetail?.wifiSsid
+                        ? "Current SSID set (enter new to replace)"
+                        : "Enter Wi-Fi name"
+                    }
+                    value={values.wifiSsid}
+                    onChange={handleChange}
+                    className="mt-1"
+                    data-testid="input-wifi-ssid"
+                  />
+                  {!applyAllMode &&
+                    listingDetail?.wifiSsid &&
+                    !values.wifiSsid && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Wi-Fi name is set
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Wifi className="h-3 w-3" /> Wi-Fi password
+                  </Label>
+                  <Input
+                    type="password"
+                    name="wifiPassword"
+                    placeholder={
+                      !applyAllMode && listingDetail?.wifiPassword
+                        ? "Current password set (enter new to replace)"
+                        : "Enter Wi-Fi password"
+                    }
+                    value={values.wifiPassword}
+                    onChange={handleChange}
+                    className="mt-1"
+                    data-testid="input-wifi-password"
+                  />
+                  {!applyAllMode &&
+                    listingDetail?.wifiPassword &&
+                    !values.wifiPassword && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Wi-Fi password is set
+                      </p>
+                    )}
+                </div>
 
-            {!applyAllMode && (
-              <div className="border-t pt-3">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <FileText className="h-3 w-3" /> PDF Brochure / House Guide
-                </Label>
-                {(listingDetail?.brochurePdfFilename ||
-                  listingConfigs.find((c) => c.listingId === editingListing)
-                    ?.brochurePdfFilename) && (
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <Badge variant="secondary">
-                      <FileText className="h-3 w-3 mr-1" />
-                      {listingDetail?.brochurePdfFilename ||
-                        listingConfigs.find(
-                          (c) => c.listingId === editingListing,
-                        )?.brochurePdfFilename}
-                    </Badge>
+                {!applyAllMode && (
+                  <div className="border-t pt-3">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <FileText className="h-3 w-3" /> PDF Brochure / House
+                      Guide
+                    </Label>
+                    {(listingDetail?.brochurePdfFilename ||
+                      currentListingConfig?.brochurePdfFilename) && (
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <Badge variant="secondary">
+                          <FileText className="h-3 w-3 mr-1" />
+                          {listingDetail?.brochurePdfFilename ||
+                            currentListingConfig?.brochurePdfFilename}
+                        </Badge>
+                      </div>
+                    )}
+                    <div className="mt-2">
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        id="brochure-upload"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file && editingListing) {
+                            handleBrochureUpload(editingListing, file);
+                          }
+                          e.target.value = "";
+                        }}
+                        data-testid="input-brochure-upload"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1.5"
+                        onClick={() =>
+                          document.getElementById("brochure-upload")?.click()
+                        }
+                        disabled={brochureUploadMutation.isPending}
+                        data-testid="button-upload-brochure"
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        {brochureUploadMutation.isPending
+                          ? "Uploading..."
+                          : "Upload / Replace PDF"}
+                      </Button>
+                    </div>
                   </div>
                 )}
-                <div className="mt-2">
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    id="brochure-upload"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file && editingListing) {
-                        handleBrochureUpload(editingListing, file);
-                      }
-                      e.target.value = "";
-                    }}
-                    data-testid="input-brochure-upload"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1.5"
-                    onClick={() =>
-                      document.getElementById("brochure-upload")?.click()
-                    }
-                    disabled={brochureUploadMutation.isPending}
-                    data-testid="button-upload-brochure"
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    {brochureUploadMutation.isPending
-                      ? "Uploading..."
-                      : "Upload / Replace PDF"}
-                  </Button>
-                </div>
-              </div>
-            )}
 
-            <Button
-              className="w-full"
-              onClick={() => {
-                if (applyAllMode) {
-                  const data: any = {};
-                  if (listingForm.defaultCheckinTime)
-                    data.defaultCheckinTime = listingForm.defaultCheckinTime;
-                  if (listingForm.doorCode)
-                    data.doorCode = listingForm.doorCode;
-                  if (listingForm.wifiSsid)
-                    data.wifiSsid = listingForm.wifiSsid;
-                  if (listingForm.wifiPassword)
-                    data.wifiPassword = listingForm.wifiPassword;
-                  applyAllMutation.mutate(data);
-                } else if (editingListing) {
-                  const data: any = {};
-                  const timeVal =
-                    listingForm.defaultCheckinTime ||
-                    listingDetail?.defaultCheckinTime;
-                  if (timeVal) data.defaultCheckinTime = timeVal;
-                  if (listingForm.doorCode)
-                    data.doorCode = listingForm.doorCode;
-                  if (listingForm.wifiSsid)
-                    data.wifiSsid = listingForm.wifiSsid;
-                  if (listingForm.wifiPassword)
-                    data.wifiPassword = listingForm.wifiPassword;
-                  listingConfigMutation.mutate({
-                    listingId: editingListing,
-                    data,
-                  });
-                }
-              }}
-              disabled={
-                listingConfigMutation.isPending || applyAllMutation.isPending
-              }
-              data-testid={
-                applyAllMode
-                  ? "button-apply-all-save"
-                  : "button-save-listing-config"
-              }
-            >
-              {listingConfigMutation.isPending || applyAllMutation.isPending
-                ? "Saving..."
-                : applyAllMode
-                  ? `Apply to all ${listingConfigs.length} listings`
-                  : "Save configuration"}
-            </Button>
-          </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={
+                    listingConfigMutation.isPending ||
+                    applyAllMutation.isPending
+                  }
+                  data-testid={
+                    applyAllMode
+                      ? "button-apply-all-save"
+                      : "button-save-listing-config"
+                  }
+                >
+                  {listingConfigMutation.isPending || applyAllMutation.isPending
+                    ? "Saving..."
+                    : applyAllMode
+                      ? `Apply to all ${listingConfigs.length} listings`
+                      : "Save configuration"}
+                </Button>
+              </Form>
+            )}
+          </Formik>
         </SheetContent>
       </Sheet>
     </div>

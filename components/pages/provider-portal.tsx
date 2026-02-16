@@ -47,6 +47,25 @@ type AuthUser = {
   profileImageUrl?: string;
 };
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function dataUrlToFile(dataUrl: string, name: string): File {
+  const arr = dataUrl.split(",");
+  const mime = arr[0]?.match(/:(.*?);/)?.[1] || "image/jpeg";
+  const bstr = atob(arr[1] || "");
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) u8arr[n] = bstr.charCodeAt(n);
+  return new File([u8arr], name, { type: mime });
+}
+
 type Subscription = {
   id: string;
   hostId: string;
@@ -467,10 +486,12 @@ function PropertiesTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [reportForm, setReportForm] = useState<{ subscriptionId: string; listingId: string; listingName: string } | null>(null);
   // Removed local state for visitDate and notes as they are now handled by Formik
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<Array<{ file: File; url: string; dataUrl?: string; category: string; caption: string; pending?: boolean; metadata?: any }>>([]);
+  const [photoFilter, setPhotoFilter] = useState<"all" | "before" | "after" | "damage" | "missing" | "other">("all");
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const { data: subs, isLoading } = useQuery<Subscription[]>({
     queryKey: ["/api/provider/subscriptions"],
@@ -485,7 +506,10 @@ function PropertiesTab() {
       fd.append("listingId", reportForm!.listingId);
       fd.append("visitDate", data.visitDate);
       fd.append("notes", data.notes);
-      data.photos.forEach((p: File) => fd.append("photos", p));
+      const files = photos.map((p) => p.file);
+      files.forEach((p) => fd.append("photos", p));
+      fd.append("categories", JSON.stringify(photos.map((p) => p.category)));
+      fd.append("captions", JSON.stringify(photos.map((p) => p.caption)));
       const res = await fetch("/api/provider/visit-reports", {
         method: "POST",
         body: fd,
@@ -509,30 +533,88 @@ function PropertiesTab() {
 
   const closeForm = () => {
     setReportForm(null);
+    photos.forEach((p) => URL.revokeObjectURL(p.url));
     setPhotos([]);
-    photoUrls.forEach((u) => URL.revokeObjectURL(u));
-    setPhotoUrls([]);
   };
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
     const newFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    const combined = [...photos, ...newFiles];
-    setPhotos(combined);
-    const newUrls = [...photoUrls, ...newFiles.map((f) => URL.createObjectURL(f))];
-    setPhotoUrls(newUrls);
+    const remaining = Math.max(0, 8 - photos.length);
+    const accepted = newFiles.slice(0, remaining);
+    if (newFiles.length > remaining) {
+      toast({ title: "Maximum 8 photos", description: `You can add ${remaining} more photo(s).`, variant: "destructive" });
+    }
+    const toAdd = await Promise.all(
+      accepted.map(async (f) => {
+        const dataUrl = await fileToDataUrl(f);
+        return {
+          file: f,
+          url: URL.createObjectURL(f),
+          dataUrl,
+          category: "after",
+          caption: "",
+          pending: !navigator.onLine,
+          metadata: {
+            fileSize: f.size,
+            lastModified: f.lastModified,
+            name: f.name,
+          },
+        };
+      }),
+    );
+    setPhotos((prev) => [...prev, ...toAdd]);
   };
 
   const removePhoto = (idx: number) => {
-    URL.revokeObjectURL(photoUrls[idx]);
-    setPhotos((p) => p.filter((_, i) => i !== idx));
-    setPhotoUrls((u) => u.filter((_, i) => i !== idx));
+    setPhotos((p) => {
+      const target = p[idx];
+      if (target) URL.revokeObjectURL(target.url);
+      return p.filter((_, i) => i !== idx);
+    });
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     handleFiles(e.dataTransfer.files);
-  }, [photos, photoUrls]);
+  }, [photos]);
+
+  const filteredPhotos = photoFilter === "all"
+    ? photos
+    : photos.filter((p) => p.category === photoFilter);
+
+  useEffect(() => {
+    const onOnline = async () => {
+      const pending = localStorage.getItem("pending_visit_report");
+      if (!pending) return;
+      try {
+        const payload = JSON.parse(pending);
+        const fd = new FormData();
+        fd.append("subscriptionId", payload.subscriptionId);
+        fd.append("listingId", payload.listingId);
+        fd.append("visitDate", payload.visitDate);
+        fd.append("notes", payload.notes || "");
+        payload.photos.forEach((p: any) => {
+          const file = dataUrlToFile(p.dataUrl, p.name || "photo.jpg");
+          fd.append("photos", file);
+        });
+        fd.append("categories", JSON.stringify(payload.photos.map((p: any) => p.category)));
+        fd.append("captions", JSON.stringify(payload.photos.map((p: any) => p.caption)));
+        const res = await fetch("/api/provider/visit-reports", {
+          method: "POST",
+          body: fd,
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to upload pending report");
+        localStorage.removeItem("pending_visit_report");
+        toast({ title: "Pending report uploaded" });
+      } catch {
+        // keep pending for retry
+      }
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
 
   if (isLoading) {
     return (
@@ -554,6 +636,8 @@ function PropertiesTab() {
   });
 
   if (reportForm) {
+    const afterCount = photos.filter((p) => p.category === "after").length;
+    const meetsMin = photos.length >= 2 && afterCount >= 2;
     return (
       <div className="p-4 space-y-4" data-testid="form-visit-report">
         <div className="flex items-center gap-3 mb-2">
@@ -570,7 +654,25 @@ function PropertiesTab() {
           initialValues={{ visitDate: "", notes: "" }}
           validationSchema={ReportSchema}
           onSubmit={(values: any, { setSubmitting }: FormikHelpers<any>) => {
-            // Manually trigger mutation with photos from state
+            if (!navigator.onLine) {
+              const payload = {
+                subscriptionId: reportForm!.subscriptionId,
+                listingId: reportForm!.listingId,
+                visitDate: values.visitDate,
+                notes: values.notes,
+                photos: photos.map((p) => ({
+                  dataUrl: p.dataUrl,
+                  category: p.category,
+                  caption: p.caption,
+                  name: p.file?.name,
+                })),
+              };
+              localStorage.setItem("pending_visit_report", JSON.stringify(payload));
+              toast({ title: "No internet", description: "Report saved and will upload when you're online." });
+              setSubmitting(false);
+              closeForm();
+              return;
+            }
             uploadMutation.mutate({ ...values, photos } as any, {
               onSettled: () => setSubmitting(false),
             });
@@ -604,8 +706,8 @@ function PropertiesTab() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label className="text-xs font-medium text-muted-foreground">Photos</Label>
-                  <span className={`text-xs font-medium ${photos.length >= 8 ? "text-emerald-600" : "text-muted-foreground"}`} data-testid="text-photo-count">
-                    {photos.length}/8 photos (minimum 8)
+                  <span className="text-xs font-medium text-muted-foreground" data-testid="text-photo-count">
+                    {photos.length}/8 • After: {afterCount} (min 2)
                   </span>
                 </div>
 
@@ -618,6 +720,7 @@ function PropertiesTab() {
                 >
                   <Camera className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">Tap to select or drag photos here</p>
+                  <p className="text-xs text-muted-foreground mt-1">Minimum: 2 “After Cleaning” photos • Maximum: 8 photos</p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -627,30 +730,129 @@ function PropertiesTab() {
                     onChange={(e) => handleFiles(e.target.files)}
                     data-testid="input-photo-files"
                   />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => handleFiles(e.target.files)}
+                    data-testid="input-photo-camera"
+                  />
                 </div>
 
-                {photoUrls.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2">
-                    {photoUrls.map((url, idx) => (
-                      <div key={idx} className="relative group aspect-square rounded-md overflow-hidden">
-                        <Image 
-                          src={url} 
-                          alt={`Photo ${idx + 1}`} 
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                        <button
+                {photos.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {(["all", "after", "before", "damage", "missing", "other"] as const).map((f) => (
+                        <Button
+                          key={f}
                           type="button"
-                          onClick={() => removePhoto(idx)}
-                          className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white"
-                          style={{ visibility: "visible" }}
-                          data-testid={`button-remove-photo-${idx}`}
+                          size="sm"
+                          variant={photoFilter === f ? "default" : "outline"}
+                          onClick={() => setPhotoFilter(f)}
+                          data-testid={`button-filter-${f}`}
                         >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                          {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => cameraInputRef.current?.click()}
+                        data-testid="button-take-photo"
+                      >
+                        <Camera className="h-4 w-4 mr-1.5" />
+                        Take photo
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        data-testid="button-choose-photo"
+                      >
+                        <Upload className="h-4 w-4 mr-1.5" />
+                        Choose from gallery
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {filteredPhotos.map((p, idx) => {
+                        const actualIndex = photos.indexOf(p);
+                        return (
+                        <div key={idx} className="flex gap-3 rounded-md border p-2" data-testid={`photo-row-${idx}`}>
+                          <div className="relative h-16 w-16 rounded-md overflow-hidden flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setLightboxIndex(actualIndex)}
+                              className="h-full w-full"
+                              data-testid={`button-open-lightbox-${idx}`}
+                            >
+                              <Image src={p.url} alt={`Photo ${idx + 1}`} fill className="object-cover" unoptimized />
+                            </button>
+                            {p.pending && (
+                              <span className="absolute bottom-0 left-0 right-0 bg-yellow-500/80 text-white text-[10px] text-center">
+                                Pending Upload
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground w-14">Category</Label>
+                              <select
+                                className="h-9 flex-1 rounded-md border bg-card px-2 text-sm"
+                                value={p.category}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setPhotos((prev) =>
+                                    prev.map((x, i) => (i === idx ? { ...x, category: v } : x)),
+                                  );
+                                }}
+                                data-testid={`select-photo-category-${idx}`}
+                              >
+                                <option value="after">After Cleaning</option>
+                                <option value="before">Before Cleaning</option>
+                                <option value="damage">Damage Found</option>
+                                <option value="missing">Missing Items</option>
+                                <option value="other">Other Issues</option>
+                              </select>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                onClick={() => removePhoto(actualIndex)}
+                                data-testid={`button-remove-photo-${actualIndex}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground w-14">Caption</Label>
+                              <Input
+                                value={p.caption}
+                                onChange={(e) => {
+                                  const v = e.target.value.slice(0, 200);
+                                  setPhotos((prev) =>
+                                    prev.map((x, i) => (i === actualIndex ? { ...x, caption: v } : x)),
+                                  );
+                                }}
+                                placeholder="(Optional)"
+                                data-testid={`input-photo-caption-${actualIndex}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )})}
+                    </div>
+
+                    <p className={`text-xs ${meetsMin ? "text-emerald-600" : "text-muted-foreground"}`} data-testid="text-min-requirement">
+                      {meetsMin ? "✓ Minimum requirement met" : "Add at least 2 “After Cleaning” photos to submit."}
+                    </p>
                   </div>
                 )}
               </div>
@@ -658,7 +860,7 @@ function PropertiesTab() {
               <Button
                 className="w-full"
                 type="submit"
-                disabled={isSubmitting || uploadMutation.isPending || photos.length < 8}
+                disabled={isSubmitting || uploadMutation.isPending || !meetsMin}
                 style={{ backgroundColor: "#FF385C", borderColor: "#FF385C" }}
                 data-testid="button-submit-report"
               >
@@ -668,6 +870,42 @@ function PropertiesTab() {
             </Form>
           )}
         </Formik>
+
+        <Dialog open={lightboxIndex !== null} onOpenChange={(o) => { if (!o) setLightboxIndex(null); }}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Photo Preview</DialogTitle>
+            </DialogHeader>
+            {lightboxIndex !== null && (
+              <div className="space-y-3">
+                <div className="relative w-full h-[420px]">
+                  <Image src={photos[lightboxIndex].url} alt="Preview" fill className="object-contain" unoptimized />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Category: {photos[lightboxIndex].category} • Caption: {photos[lightboxIndex].caption || "N/A"}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setLightboxIndex((i) => (i === null ? i : Math.max(0, i - 1)))}
+                    disabled={lightboxIndex === 0}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setLightboxIndex((i) => (i === null ? i : Math.min(photos.length - 1, i + 1)))}
+                    disabled={lightboxIndex === photos.length - 1}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -912,7 +1150,7 @@ function ChatThread({ sub, onBack }: { sub: Subscription; onBack: () => void }) 
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 pb-[48px] md:pb-4 space-y-2">
         {isLoading && (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-48" />)}
@@ -947,7 +1185,7 @@ function ChatThread({ sub, onBack }: { sub: Subscription; onBack: () => void }) 
         <div ref={messagesEnd} />
       </div>
 
-      <div className="px-4 py-3 border-t border-border/50 sticky bottom-0 z-50 bg-background">
+      <div className="mt-auto px-4 py-3 border-t border-border/50 bg-background sticky bottom-[32px] md:bottom-0 z-50">
         <form
           className="flex items-center gap-2"
           onSubmit={(e) => {
@@ -959,7 +1197,7 @@ function ChatThread({ sub, onBack }: { sub: Subscription; onBack: () => void }) 
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 bg-card border-border rounded-full"
+            className="flex-1 bg-card border-border"
             data-testid="input-chat-message"
           />
           <Button
@@ -989,47 +1227,85 @@ function ProviderDashboard({ user, onLogout }: { user: AuthUser; onLogout: () =>
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" data-testid="provider-dashboard">
-      <header className="h-14 flex items-center justify-between gap-2 px-4 border-b border-border/50 sticky top-0 z-50 bg-background">
-        <span className="text-lg font-extrabold tracking-tight" style={{ color: "#FF385C" }} data-testid="text-dashboard-logo">
-          Provider Portal
-        </span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground hidden sm:inline">{user.firstName} {user.lastName}</span>
+    <div className="min-h-screen bg-background flex" data-testid="provider-dashboard">
+      <aside className="hidden md:flex md:w-56 lg:w-64 border-r border-border/50 bg-background">
+        <div className="flex flex-col w-full">
+          <div className="h-14 flex items-center px-4 border-b border-border/50">
+            <span className="text-lg font-extrabold tracking-tight" style={{ color: "#FF385C" }} data-testid="text-dashboard-logo">
+              Provider Portal
+            </span>
+          </div>
+          <nav className="flex-1 px-2 py-3 space-y-1">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${
+                    isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"
+                  }`}
+                  data-testid={`tab-${tab.id}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="border-t border-border/50 p-3">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground truncate">{user.firstName} {user.lastName}</p>
+              </div>
+              <Button size="icon" aria-label="Logout" variant="ghost" onClick={onLogout} data-testid="button-logout">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-14 flex items-center justify-between gap-2 px-4 border-b border-border/50 sticky top-0 z-50 bg-background md:hidden">
+          <span className="text-lg font-extrabold tracking-tight" style={{ color: "#FF385C" }} data-testid="text-dashboard-logo">
+            Provider Portal
+          </span>
           <Button size="icon" aria-label="Logout" variant="ghost" onClick={onLogout} data-testid="button-logout">
             <LogOut className="h-4 w-4" />
           </Button>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 overflow-y-auto pb-20 max-w-2xl mx-auto w-full">
-        {activeTab === "requests" && <RequestsTab />}
-        {activeTab === "properties" && <PropertiesTab />}
-        {activeTab === "reviews" && <ReviewsTab />}
-        {activeTab === "chat" && <ChatTab />}
-      </main>
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-6 w-full">
+          {activeTab === "requests" && <RequestsTab />}
+          {activeTab === "properties" && <PropertiesTab />}
+          {activeTab === "reviews" && <ReviewsTab />}
+          {activeTab === "chat" && <ChatTab />}
+        </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border/50 z-50 safe-area-bottom" data-testid="nav-bottom-tabs">
-        <div className="max-w-2xl mx-auto flex">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className="flex-1 flex flex-col items-center gap-0.5 py-2"
-                data-testid={`tab-${tab.id}`}
-              >
-                <Icon className="h-5 w-5" style={{ color: isActive ? "#FF385C" : undefined }} />
-                <span className="text-[10px] font-medium" style={{ color: isActive ? "#FF385C" : undefined }}>
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+        <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border/50 z-50 safe-area-bottom md:hidden" data-testid="nav-bottom-tabs">
+          <div className="max-w-2xl mx-auto flex">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="flex-1 flex flex-col items-center gap-0.5 py-2"
+                  data-testid={`tab-${tab.id}`}
+                >
+                  <Icon className="h-5 w-5" style={{ color: isActive ? "#FF385C" : undefined }} />
+                  <span className="text-[10px] font-medium" style={{ color: isActive ? "#FF385C" : undefined }}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }

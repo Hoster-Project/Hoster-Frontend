@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChannelBadge } from "@/components/channel-icon";
 import { cn } from "@/lib/utils";
@@ -321,7 +321,7 @@ export default function ChatPage({ conversationId }: { conversationId: string })
  </p>
  </div>
  ) : (
- <div className="flex items-end gap-2">
+ <div className="flex items-center gap-2">
  <Sheet open={templateOpen} onOpenChange={setTemplateOpen}>
  <SheetTrigger asChild>
  <Button
@@ -362,13 +362,12 @@ export default function ChatPage({ conversationId }: { conversationId: string })
  </div>
  </SheetContent>
  </Sheet>
- <Textarea
+ <Input
  placeholder="Type a message..."
  value={message}
  onChange={(e) => setMessage(e.target.value)}
- className="min-h-[40px] max-h-[100px] resize-none flex-1 text-sm"
  onKeyDown={(e) => {
- if (e.key === "Enter" && !e.shiftKey) {
+ if (e.key === "Enter") {
  e.preventDefault();
  handleSend();
  }

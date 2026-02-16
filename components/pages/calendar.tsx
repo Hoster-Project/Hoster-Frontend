@@ -17,6 +17,8 @@ import { ChannelBadge, ChannelIcon } from "@/components/channel-icon";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { formatMoney } from "@/lib/money";
 import {
  ChevronLeft,
  ChevronRight,
@@ -28,7 +30,6 @@ import {
  Star,
  Music,
  MapPin,
- Ticket,
 } from "lucide-react";
 import {
  format,
@@ -70,6 +71,19 @@ const SAUDI_EVENTS: SaudiEvent[] = [
  { name: "Jeddah Season", location: "Jeddah", startDate: "2026-06-01", endDate: "2026-08-31", category: "season", description: "Summer entertainment with beach events and festivals" },
  { name: "Esports World Cup", location: "Riyadh", startDate: "2026-07-06", endDate: "2026-08-23", category: "entertainment", description: "Global esports tournament - attracts international visitors" },
  { name: "AlUla Season", location: "AlUla", startDate: "2025-10-01", endDate: "2026-03-31", category: "season", description: "Heritage and cultural tourism in the ancient city" },
+];
+
+const LISTING_COLOR_PALETTE = [
+ "#10B981",
+ "#3B82F6",
+ "#F59E0B",
+ "#8B5CF6",
+ "#EC4899",
+ "#14B8A6",
+ "#EF4444",
+ "#6366F1",
+ "#22C55E",
+ "#F97316",
 ];
 
 function getUpcomingEvents(count: number = 8): SaudiEvent[] {
@@ -118,23 +132,34 @@ interface CalendarData {
 }
 
 export default function CalendarPage() {
+ const { user } = useAuth();
  const [currentMonth, setCurrentMonth] = useState(new Date());
- const [selectedListingId, setSelectedListingId] = useState<string>("");
+ const [selectedListingId, setSelectedListingId] = useState<string>("all");
  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
  const { toast } = useToast();
 
+ const isAll = selectedListingId === "all";
+
+ const calendarQueryKey = ["/api/calendar", selectedListingId] as const;
  const { data, isLoading } = useQuery<CalendarData>({
- queryKey: ["/api/calendar"],
+ queryKey: calendarQueryKey,
+ queryFn: async () => {
+ const base = process.env.NEXT_PUBLIC_API_URL || "";
+ const url = `${base}/api/calendar?listingId=${encodeURIComponent(selectedListingId)}`;
+ const res = await fetch(url, { credentials: "include", cache: "no-store" });
+ if (!res.ok) throw new Error(await res.text() || res.statusText);
+ return res.json();
+ },
  });
 
  const autoSelectListing = useMemo(() => {
  if (!data?.listings?.length) return "";
- if (selectedListingId && data.listings.find((l) => l.id === selectedListingId))
+ if (selectedListingId && selectedListingId !== "all" && data.listings.find((l) => l.id === selectedListingId))
  return selectedListingId;
  return data.listings[0].id;
  }, [data?.listings, selectedListingId]);
 
- const activeListingId = selectedListingId || autoSelectListing;
+ const activeListingId = selectedListingId !== "all" ? selectedListingId : "";
 
  const days = useMemo(() => {
  const start = startOfMonth(currentMonth);
@@ -144,13 +169,53 @@ export default function CalendarPage() {
 
  const startDayOfWeek = getDay(startOfMonth(currentMonth));
 
- const upcomingEvents = useMemo(() => getUpcomingEvents(8), []);
+ const listingColors = useMemo(() => {
+ const mapping: Record<string, string> = {};
+ if (!data?.listings?.length) return mapping;
+ data.listings.forEach((listing, idx) => {
+ mapping[listing.id] = LISTING_COLOR_PALETTE[idx % LISTING_COLOR_PALETTE.length];
+ });
+ return mapping;
+ }, [data?.listings]);
+
+ const getReservationsForDay = (day: Date) => {
+ if (!data) return [];
+ const dateStr = format(day, "yyyy-MM-dd");
+ return data.reservations.filter(
+ (r) =>
+ r.status === "CONFIRMED" &&
+ dateStr >= r.checkIn &&
+ dateStr < r.checkOut
+ );
+ };
 
  const getDayStatus = (
  day: Date
  ): "available" | "blocked" | "reserved" => {
- if (!data || !activeListingId) return "available";
+ if (!data) return "available";
  const dateStr = format(day, "yyyy-MM-dd");
+ if (isAll) {
+ const hasReservation = data.reservations.some(
+ (r) =>
+ r.status === "CONFIRMED" &&
+ dateStr >= r.checkIn &&
+ dateStr < r.checkOut
+ );
+ if (hasReservation) return "reserved";
+ if (data.listings.length > 0) {
+ const allBlocked = data.listings.every((listing) =>
+ data.calendarDays.some(
+ (cd) =>
+ cd.listingId === listing.id &&
+ cd.date === dateStr &&
+ cd.status === "BLOCKED"
+ )
+ );
+ if (allBlocked) return "blocked";
+ }
+ return "available";
+ }
+ if (!activeListingId) return "available";
  const reservation = data.reservations.find(
  (r) =>
  r.listingId === activeListingId &&
@@ -243,6 +308,10 @@ export default function CalendarPage() {
  });
 
  const handleDayClick = (day: Date) => {
+ if (isAll) {
+ setSelectedDate(day);
+ return;
+ }
  if (!activeListingId) return;
  const status = getDayStatus(day);
  if (status === "reserved") {
@@ -257,7 +326,7 @@ export default function CalendarPage() {
  });
  };
 
- const activeListing = data?.listings.find((l) => l.id === activeListingId);
+ const activeListing = !isAll ? data?.listings.find((l) => l.id === activeListingId) : null;
 
  if (isLoading) {
  return (
@@ -272,7 +341,7 @@ export default function CalendarPage() {
  <div className="px-4 py-4 pb-6">
  {data?.listings?.length ? (
  <Select
-   value={activeListingId}
+   value={selectedListingId}
    onValueChange={setSelectedListingId}
  >
    <SelectTrigger
@@ -282,6 +351,7 @@ export default function CalendarPage() {
      <SelectValue placeholder="Select a unit" />
    </SelectTrigger>
    <SelectContent>
+     <SelectItem value="all" data-testid="select-listing-all">All</SelectItem>
      {data.listings.map((listing) => (
        <SelectItem
          key={listing.id}
@@ -307,7 +377,17 @@ export default function CalendarPage() {
 
  {data?.listings?.length ? (
  <>
- {activeListing && (activeListing as any).channels?.length > 0 && (
+ {isAll ? (
+ <div className="mb-3 flex flex-wrap gap-3">
+ {data.listings.map((listing) => (
+ <div key={listing.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+ <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: listingColors[listing.id] || "#9CA3AF" }} />
+ <span className="truncate max-w-[120px]">{listing.name}</span>
+ </div>
+ ))}
+ </div>
+ ) : null}
+ {activeListing && (activeListing as any).channels?.length > 0 && !isAll && (
  <div className="mb-3 flex flex-wrap gap-1.5">
  {(activeListing as any).channels.map(
  (ch: { channelKey: ChannelKey; channelName: string }) => (
@@ -357,7 +437,9 @@ export default function CalendarPage() {
 
  <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
  <Info className="h-3 w-3 flex-shrink-0" />
- <span>Tap a day to block/unblock. Bookable until {bookableUntil}</span>
+ <span>
+ {isAll ? "View booking coverage across all listings." : "Tap a day to block/unblock."} Bookable until {bookableUntil}
+ </span>
  </div>
 
         <div className="relative overflow-x-auto">
@@ -380,14 +462,18 @@ export default function CalendarPage() {
               {days.map((day) => {
                 const status = getDayStatus(day);
                 const today = isToday(day);
-                const reservation = status === "reserved" ? getReservationForDay(day) : null;
+                const reservation = !isAll && status === "reserved" ? getReservationForDay(day) : null;
                 const channelKey = (reservation as any)?.channelKey as ChannelKey | undefined;
+                const dayReservations = isAll && status === "reserved" ? getReservationsForDay(day) : [];
+                const dayListingIds = isAll
+                  ? Array.from(new Set(dayReservations.map((r) => r.listingId)))
+                  : [];
 
                 return (
                   <button
                     key={day.toISOString()}
                     onClick={() => handleDayClick(day)}
-                    disabled={blockMutation.isPending}
+                    disabled={blockMutation.isPending || isAll}
                     className={cn(
                       "relative flex h-10 items-center justify-center rounded-md text-sm font-medium transition-colors",
                       status === "reserved" &&
@@ -408,6 +494,20 @@ export default function CalendarPage() {
                         <ChannelIcon channelKey={channelKey} size={10} />
                       </span>
                     )}
+                    {isAll && status === "reserved" && dayListingIds.length > 0 && (
+                      <span className="absolute bottom-0.5 flex items-center gap-0.5">
+                        {dayListingIds.slice(0, 3).map((listingId) => (
+                          <span
+                            key={listingId}
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ backgroundColor: listingColors[listingId] || "#9CA3AF" }}
+                          />
+                        ))}
+                        {dayListingIds.length > 3 && (
+                          <span className="text-[9px] text-muted-foreground">+{dayListingIds.length - 3}</span>
+                        )}
+                      </span>
+                    )}
                     {status === "reserved" && !channelKey && (
                       <span className="absolute bottom-1 h-1 w-3 rounded-full bg-emerald-500/40" />
                     )}
@@ -424,11 +524,11 @@ export default function CalendarPage() {
  <div className="mt-4 flex items-center gap-5 text-xs text-muted-foreground">
  <div className="flex items-center gap-1.5">
  <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" />
- Booked
+ Booked {isAll ? "(any listing)" : ""}
  </div>
  <div className="flex items-center gap-1.5">
  <span className="h-2.5 w-2.5 rounded-full bg-gray-700" />
- Blocked
+ Blocked {isAll ? "(all listings)" : ""}
  </div>
  <div className="flex items-center gap-1.5">
  <span className="h-2.5 w-2.5 rounded-full border" />
@@ -437,7 +537,59 @@ export default function CalendarPage() {
  </div>
  </Card>
 
- {selectedDate && (
+ {selectedDate && isAll && (
+ (() => {
+ const dayReservations = getReservationsForDay(selectedDate);
+ if (dayReservations.length === 0) {
+ setSelectedDate(null);
+ return null;
+ }
+ return (
+ <Card className="mt-3 p-4" data-testid="card-reservation-detail-all">
+ <div className="flex items-center justify-between gap-2 mb-3">
+ <h3 className="text-sm font-semibold">
+ {format(selectedDate, "MMM d")} reservations
+ </h3>
+ <Button
+ size="sm"
+ variant="ghost"
+ onClick={() => setSelectedDate(null)}
+ data-testid="button-close-detail"
+ >
+ Close
+ </Button>
+ </div>
+ <div className="space-y-2">
+ {dayReservations.map((res) => {
+ const listing = data?.listings.find((l) => l.id === res.listingId);
+ return (
+ <div key={res.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
+ <div className="min-w-0">
+ <div className="flex items-center gap-2">
+ {(res as any).channelKey && (
+ <ChannelBadge channelKey={(res as any).channelKey as ChannelKey} />
+ )}
+ <p className="text-sm font-medium truncate">{res.guestName}</p>
+ </div>
+ <p className="text-xs text-muted-foreground mt-0.5 truncate">
+ {listing?.name || "Listing"} • {format(parseISO(res.checkIn), "MMM d")} - {format(parseISO(res.checkOut), "MMM d")}
+ </p>
+ </div>
+ {res.totalAmount && (
+ <span className="text-sm font-semibold">
+ {formatMoney(res.totalAmount as any, (res as any).currency || user?.currency)}
+ </span>
+ )}
+ </div>
+ );
+ })}
+ </div>
+ </Card>
+ );
+ })()
+ )}
+
+ {selectedDate && !isAll && (
  (() => {
  const res = getReservationForDay(selectedDate);
  if (!res) {
@@ -494,8 +646,7 @@ export default function CalendarPage() {
  <div className="mt-3 pt-3 border-t flex items-center justify-between">
  <span className="text-xs text-muted-foreground">Total</span>
  <span className="text-sm font-bold">
- {res.currency === "EUR" ? "\u20AC" : "$"}
- {!isNaN(parseFloat(res.totalAmount as any)) ? parseFloat(res.totalAmount as any).toLocaleString(undefined, { maximumFractionDigits: 0 }) : res.totalAmount}
+ {formatMoney(res.totalAmount as any, (res as any).currency || user?.currency)}
  </span>
  </div>
  )}
@@ -506,56 +657,6 @@ export default function CalendarPage() {
 
  </>
  ) : null}
-
- <Card className="mt-3 p-4" data-testid="card-upcoming-events">
- <div className="flex items-center justify-between gap-2 mb-3">
- <div className="flex items-center gap-1.5 text-muted-foreground">
- <Ticket className="h-3.5 w-3.5" />
- <span className="text-xs font-semibold uppercase tracking-wider">
- Upcoming Events
- </span>
- </div>
- <Badge variant="secondary">{upcomingEvents.length}</Badge>
- </div>
- <div className="space-y-2">
- {upcomingEvents.map((event, i) => {
- const Icon = getEventCategoryIcon(event.category);
- const colorClasses = getEventCategoryColor(event.category);
- const [iconColor, iconBg] = colorClasses.split(" ");
- const active = isEventActive(event);
- const start = new Date(event.startDate);
- const end = new Date(event.endDate);
- const sameDay = event.startDate === event.endDate;
- return (
- <div
- key={i}
- className={`flex items-start gap-3 p-2.5 rounded-md border ${active ? "border-primary/30 bg-primary/5" : ""}`}
- data-testid={`event-${i}`}
- >
- <div className={`flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0 ${iconBg}`}>
- <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
- </div>
- <div className="min-w-0 flex-1">
- <div className="flex items-center gap-2 flex-wrap">
- <p className="text-sm font-semibold truncate" data-testid={`text-event-name-${i}`}>{event.name}</p>
- {active && (
- <Badge variant="secondary" className="text-[10px] py-0" data-testid={`badge-event-active-${i}`}>
- Live now
- </Badge>
- )}
- </div>
- <p className="text-xs text-muted-foreground mt-0.5">
- {sameDay ? format(start, "MMM d, yyyy") : `${format(start, "MMM d")} - ${format(end, "MMM d, yyyy")}`}
- <span className="mx-1.5 opacity-30">|</span>
- {event.location}
- </p>
- <p className="text-xs text-muted-foreground/80 mt-0.5">{event.description}</p>
- </div>
- </div>
- );
- })}
- </div>
- </Card>
  </div>
  );
 }

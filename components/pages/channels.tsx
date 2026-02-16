@@ -48,24 +48,29 @@ export default function ChannelsPage() {
  const { toast } = useToast();
  const router = useRouter();
   const setLocation = (path: string) => router.push(path);
- const [connectingChannel, setConnectingChannel] = useState<string | null>(null);
- const [channelUsername, setChannelUsername] = useState("");
- const [channelPassword, setChannelPassword] = useState("");
+ const [connectingChannel, setConnectingChannel] = useState<{ channelKey: ChannelKey; channelId: string } | null>(null);
+ const [disconnectChannel, setDisconnectChannel] = useState<{ channelKey: ChannelKey; channelId: string; name: string } | null>(null);
+ const [disconnectConfirmText, setDisconnectConfirmText] = useState("");
 
  const { data, isLoading } = useQuery<SettingsData>({
  queryKey: ["/api/settings"],
  });
 
  const connectMutation = useMutation({
- mutationFn: async ({ channelKey, username, password }: { channelKey: ChannelKey; username?: string; password?: string }) => {
- await apiRequest("POST", "/api/providers/connect", { channelKey, username, password });
+ mutationFn: async ({ channelId }: { channelId: string }) => {
+ const res = await apiRequest("POST", "/api/channels/connect", { channelId });
+ return await res.json();
  },
- onSuccess: () => {
+ onSuccess: (data: any) => {
  queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
  queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
  queryClient.invalidateQueries({ queryKey: ["/api/calendar"] });
  queryClient.invalidateQueries({ queryKey: ["/api/inbox"] });
- toast({ title: "Channel connected" });
+ if (data?.oauthUrl) {
+   setLocation(String(data.oauthUrl));
+ } else {
+   toast({ title: "Failed to start connection", variant: "destructive" });
+ }
  },
  onError: () => {
  toast({ title: "Failed to connect", variant: "destructive" });
@@ -73,13 +78,22 @@ export default function ChannelsPage() {
  });
 
  const disconnectMutation = useMutation({
- mutationFn: async (channelKey: ChannelKey) => {
- await apiRequest("POST", "/api/providers/disconnect", { channelKey });
+ mutationFn: async ({ channelId }: { channelId: string }) => {
+ const res = await apiRequest("POST", "/api/channels/disconnect", { channelId });
+ return await res.json();
  },
- onSuccess: () => {
+ onSuccess: (data: any) => {
  queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
  queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
- toast({ title: "Channel disconnected" });
+ toast({
+   title: "Channel disconnected",
+   description:
+     typeof data?.deletedBookings === "number"
+       ? `${data.deletedBookings} booking(s) deleted.`
+       : undefined,
+ });
+ setDisconnectChannel(null);
+ setDisconnectConfirmText("");
  },
  onError: () => {
  toast({ title: "Failed to disconnect", variant: "destructive" });
@@ -98,6 +112,12 @@ export default function ChannelsPage() {
  }
 
  const allChannelData = data?.channels || [];
+ const connectedChannels = allChannelData.filter(
+ (c) => c.status === "CONNECTED" || c.status === "ERROR"
+ );
+ const mainChannelKeysNotConnected = CHANNEL_KEYS.filter(
+ (key) => !connectedChannels.some((c) => c.channelKey === key)
+ );
  const extraChannelKeys = Object.keys(EXTRA_CHANNELS);
 
  return (
@@ -115,13 +135,15 @@ export default function ChannelsPage() {
  <h1 className="text-lg font-semibold text-primary" data-testid="text-channels-title">Manage Channels</h1>
  </div>
 
+ {connectedChannels.length > 0 && (
+ <>
  <div className="mb-4">
  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
  Connected Channels
  </h2>
  </div>
  <div className="space-y-3">
- {CHANNEL_KEYS.map((key) => {
+ {CHANNEL_KEYS.filter((key) => connectedChannels.some((c) => c.channelKey === key)).map((key) => {
  const info = CHANNEL_INFO[key];
  const channelData = allChannelData.find(c => c.channelKey === key);
  const isConnected = channelData?.status === "CONNECTED";
@@ -162,7 +184,11 @@ export default function ChannelsPage() {
  <Button
  size="sm"
  variant="outline"
- onClick={() => disconnectMutation.mutate(key)}
+ onClick={() => {
+   if (!channelData?.channelId) return;
+   setDisconnectChannel({ channelKey: key, channelId: channelData.channelId, name: info.name });
+   setDisconnectConfirmText("");
+ }}
  disabled={disconnectMutation.isPending}
  data-testid={`button-disconnect-${key.toLowerCase()}`}
  >
@@ -177,9 +203,8 @@ export default function ChannelsPage() {
  <Button
  size="sm"
  onClick={() => {
- setConnectingChannel(key);
- setChannelUsername("");
- setChannelPassword("");
+ if (!channelData?.channelId) return;
+ setConnectingChannel({ channelKey: key, channelId: channelData.channelId });
  }}
  data-testid={`button-connect-${key.toLowerCase()}`}
  >
@@ -192,13 +217,45 @@ export default function ChannelsPage() {
  );
  })}
  </div>
+ </>
+ )}
 
- <div className="mt-6 mb-4">
+ <div className={connectedChannels.length > 0 ? "mt-6 mb-4" : "mb-4"}>
  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
  More channels
  </h2>
  </div>
  <div className="space-y-3">
+ {mainChannelKeysNotConnected.map((key) => {
+ const info = CHANNEL_INFO[key];
+ return (
+ <Card key={key} className="p-4" data-testid={`channel-card-${key.toLowerCase()}`}>
+ <div className="flex items-center justify-between gap-3">
+ <div className="flex items-center gap-3 min-w-0">
+ <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted flex-shrink-0">
+ <ChannelIcon channelKey={key} size={20} />
+ </div>
+ <div className="min-w-0">
+ <p className="font-medium text-sm">{info.name}</p>
+ <p className="text-xs text-muted-foreground mt-0.5">Not connected</p>
+ </div>
+ </div>
+ <Button
+ size="sm"
+ onClick={() => {
+ const channelData = allChannelData.find((c) => c.channelKey === key);
+ if (!channelData?.channelId) return;
+ setConnectingChannel({ channelKey: key, channelId: channelData.channelId });
+ }}
+ data-testid={`button-connect-${key.toLowerCase()}`}
+ >
+ <Plug className="h-3.5 w-3.5 mr-1.5" />
+ Connect
+ </Button>
+ </div>
+ </Card>
+ );
+ })}
  {extraChannelKeys.map((key) => {
  const ch = EXTRA_CHANNELS[key];
  return (
@@ -216,9 +273,7 @@ export default function ChannelsPage() {
  <Button
  size="sm"
  onClick={() => {
- setConnectingChannel(key as ChannelKey);
- setChannelUsername("");
- setChannelPassword("");
+ toast({ title: "Coming soon", description: "This channel is not available yet." });
  }}
  data-testid={`button-connect-${key.toLowerCase()}`}
  >
@@ -231,63 +286,89 @@ export default function ChannelsPage() {
  })}
  </div>
 
- <AlertDialog open={connectingChannel !== null} onOpenChange={(open) => { if (!open) { setConnectingChannel(null); setChannelUsername(""); setChannelPassword(""); } }}>
- <AlertDialogContent data-testid="dialog-connect-channel">
- <AlertDialogHeader>
- <AlertDialogTitle className="flex items-center gap-2">
- {connectingChannel && <ChannelIcon channelKey={connectingChannel} size={20} />}
- Connect {connectingChannel ? ((CHANNEL_INFO as Record<string, any>)[connectingChannel]?.name || EXTRA_CHANNELS[connectingChannel]?.name || "") : ""}
- </AlertDialogTitle>
- <AlertDialogDescription>
- Enter your {connectingChannel ? ((CHANNEL_INFO as Record<string, any>)[connectingChannel]?.name || EXTRA_CHANNELS[connectingChannel]?.name || "") : ""} account credentials to connect.
- </AlertDialogDescription>
- </AlertDialogHeader>
- <div className="space-y-3 py-2">
- <div className="space-y-1.5">
- <Label className="text-xs text-muted-foreground">Username or Email</Label>
- <Input
- value={channelUsername}
- onChange={(e) => setChannelUsername(e.target.value)}
- placeholder="your@email.com"
- data-testid="input-channel-username"
- />
- </div>
- <div className="space-y-1.5">
- <Label className="text-xs text-muted-foreground">Password</Label>
- <Input
- type="password"
- value={channelPassword}
- onChange={(e) => setChannelPassword(e.target.value)}
- placeholder="Account password"
- data-testid="input-channel-password"
- />
- </div>
- </div>
- <AlertDialogFooter>
- <AlertDialogCancel data-testid="button-cancel-connect">Cancel</AlertDialogCancel>
- <AlertDialogAction
- onClick={() => {
- if (connectingChannel) {
- connectMutation.mutate({
- channelKey: connectingChannel as ChannelKey,
- username: channelUsername.trim(),
- password: channelPassword.trim(),
- });
- setConnectingChannel(null);
- setChannelUsername("");
- setChannelPassword("");
- }
- }}
- disabled={!channelUsername.trim() || !channelPassword.trim() || connectMutation.isPending}
- data-testid="button-confirm-connect"
+ <AlertDialog
+   open={connectingChannel !== null}
+   onOpenChange={(open) => {
+     if (!open) setConnectingChannel(null);
+   }}
  >
- {connectMutation.isPending ? (
- <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
- ) : null}
- Connect
- </AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
+   <AlertDialogContent data-testid="dialog-connect-channel">
+     <AlertDialogHeader>
+       <AlertDialogTitle className="flex items-center gap-2">
+         {connectingChannel && <ChannelIcon channelKey={connectingChannel.channelKey} size={20} />}
+         Connect {connectingChannel ? CHANNEL_INFO[connectingChannel.channelKey]?.name : ""}
+       </AlertDialogTitle>
+       <AlertDialogDescription>
+         You will be redirected to complete the connection.
+       </AlertDialogDescription>
+     </AlertDialogHeader>
+     <AlertDialogFooter>
+       <AlertDialogCancel data-testid="button-cancel-connect">Cancel</AlertDialogCancel>
+       <AlertDialogAction
+         onClick={() => {
+           if (!connectingChannel) return;
+           connectMutation.mutate({ channelId: connectingChannel.channelId });
+         }}
+         disabled={connectMutation.isPending}
+         data-testid="button-confirm-connect"
+       >
+         {connectMutation.isPending ? (
+           <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+         ) : null}
+         Continue
+       </AlertDialogAction>
+     </AlertDialogFooter>
+   </AlertDialogContent>
+ </AlertDialog>
+
+ <AlertDialog
+   open={disconnectChannel !== null}
+   onOpenChange={(open) => {
+     if (!open) {
+       setDisconnectChannel(null);
+       setDisconnectConfirmText("");
+     }
+   }}
+ >
+   <AlertDialogContent data-testid="dialog-disconnect-channel">
+     <AlertDialogHeader>
+       <AlertDialogTitle>Disconnect Channel?</AlertDialogTitle>
+       <AlertDialogDescription>
+         <span className="block font-medium text-destructive">
+           Warning: data will be permanently deleted.
+         </span>
+         <span className="block mt-2">
+           Disconnecting <span className="font-semibold">{disconnectChannel?.name}</span> will delete all bookings and messages synced from this channel.
+         </span>
+         <span className="block mt-3">
+           Type <span className="font-semibold">DELETE</span> to confirm:
+         </span>
+         <Input
+           value={disconnectConfirmText}
+           onChange={(e) => setDisconnectConfirmText(e.target.value)}
+           className="mt-2"
+           placeholder="DELETE"
+           data-testid="input-disconnect-confirm"
+         />
+       </AlertDialogDescription>
+     </AlertDialogHeader>
+     <AlertDialogFooter>
+       <AlertDialogCancel data-testid="button-cancel-disconnect">Cancel</AlertDialogCancel>
+       <AlertDialogAction
+         onClick={() => {
+           if (!disconnectChannel) return;
+           disconnectMutation.mutate({ channelId: disconnectChannel.channelId });
+         }}
+         disabled={disconnectConfirmText !== "DELETE" || disconnectMutation.isPending}
+         data-testid="button-confirm-disconnect"
+       >
+         {disconnectMutation.isPending ? (
+           <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+         ) : null}
+         Delete bookings & disconnect
+       </AlertDialogAction>
+     </AlertDialogFooter>
+   </AlertDialogContent>
  </AlertDialog>
  </div>
  );

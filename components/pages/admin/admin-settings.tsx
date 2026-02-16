@@ -30,6 +30,7 @@ import {
   Lock,
   Bell,
   Shield,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -49,6 +50,7 @@ export default function AdminSettings() {
   const [showRoleDialog, setShowRoleDialog] = useState<TeamMember | null>(null);
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [newRole, setNewRole] = useState("host");
+  const [testEmail, setTestEmail] = useState("");
 
   const [notifications, setNotifications] = useState({
     newProviderRequests: true,
@@ -112,6 +114,19 @@ export default function AdminSettings() {
     },
   });
 
+  const sendTestEmail = useMutation({
+    mutationFn: async (to: string) => {
+      const res = await apiRequest("POST", "/api/admin/settings/email/test", { to });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Test email sent" });
+    },
+    onError: () => {
+      toast({ title: "Failed to send test email", variant: "destructive" });
+    },
+  });
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (file) updateAvatar.mutate(file);
@@ -162,6 +177,34 @@ export default function AdminSettings() {
               </p>
               <Badge variant="secondary" className="mt-1 text-[10px]">Admin</Badge>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-email-settings">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Mail className="h-4 w-4" /> Email Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Email settings are configured via environment variables on the server.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              placeholder="Send test email to..."
+              value={testEmail || (user as any)?.email || ""}
+              onChange={(e) => setTestEmail(e.target.value)}
+              data-testid="input-test-email"
+            />
+            <Button
+              onClick={() => sendTestEmail.mutate((testEmail || (user as any)?.email || "").trim())}
+              disabled={sendTestEmail.isPending}
+              data-testid="button-send-test-email"
+            >
+              {sendTestEmail.isPending ? "Sending..." : "Send Test"}
+            </Button>
           </div>
         </CardContent>
       </Card>

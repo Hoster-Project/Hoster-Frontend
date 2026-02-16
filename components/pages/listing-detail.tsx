@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,9 +23,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   MapPin,
-  Image as ImageIcon,
   DollarSign,
   BedDouble,
   Bath,
@@ -56,6 +64,8 @@ import {
   WashingMachine,
 } from "lucide-react";
 import type { ChannelKey } from "@/lib/constants";
+import { formatDistanceToNow, parseISO } from "date-fns";
+import { formatMoney } from "@/lib/money";
 
 const LISTING_IMAGES: Record<string, string> = {
   "Sunny Beach Studio": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop",
@@ -134,6 +144,8 @@ interface SettingsData {
     channelId: string;
     name: string;
     status: string;
+    lastSyncAt?: string | null;
+    lastError?: string | null;
   }>;
   listings: Array<{
     id: string;
@@ -180,6 +192,14 @@ export default function ListingDetailPage() {
   const [amenitiesDialogOpen, setAmenitiesDialogOpen] = useState(false);
   const [editedAmenities, setEditedAmenities] = useState<string[]>([]);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [photoDeleteTarget, setPhotoDeleteTarget] = useState<string | null>(null);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
+  const [disconnectTarget, setDisconnectTarget] = useState<{
+    channelKey: ChannelKey;
+    channelId: string;
+    channelName: string;
+  } | null>(null);
+  const [disconnectConfirmText, setDisconnectConfirmText] = useState("");
 
   const photoUploadMutation = useMutation({
     mutationFn: async (image: string) => {
@@ -203,8 +223,54 @@ export default function ListingDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({ title: "Photo removed" });
+      setPhotoDeleteTarget(null);
     },
   });
+
+  const disconnectChannelMutation = useMutation({
+    mutationFn: async ({ channelId }: { channelId: string }) => {
+      const res = await apiRequest("POST", "/api/channels/disconnect", {
+        channelId,
+        unitId: listingId,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/calendar"] });
+      toast({
+        title: "Channel disconnected",
+        description:
+          typeof data?.deletedBookings === "number"
+            ? `${data.deletedBookings} booking(s) deleted.`
+            : undefined,
+      });
+      setDisconnectTarget(null);
+      setDisconnectConfirmText("");
+    },
+    onError: () => {
+      toast({ title: "Failed to disconnect", variant: "destructive" });
+    },
+  });
+
+  const exportBookings = async (channelId: string) => {
+    const res = await fetch(`/api/bookings/export?channelId=${encodeURIComponent(channelId)}&unitId=${encodeURIComponent(listingId)}`, {
+      credentials: "include",
+    });
+    if (!res.ok) {
+      throw new Error("Failed to export bookings");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bookings-export.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
 
   const amenitiesMutation = useMutation({
     mutationFn: async (amenities: string[]) => {
@@ -244,24 +310,120 @@ export default function ListingDetailPage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Please select an image file", variant: "destructive" });
-      return;
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+
+  const compressImageIfNeeded = async (file: File): Promise<File> => {
+    const SHOULD_COMPRESS_BYTES = 2 * 1024 * 1024;
+    const TARGET_MAX_BYTES = 2 * 1024 * 1024;
+    const MAX_DIMENSION = 1920;
+
+    if (file.size <= SHOULD_COMPRESS_BYTES) return file;
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = document.createElement("img");
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error("Failed to load image"));
+        i.src = objectUrl;
+      });
+
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
+      const width = Math.max(1, Math.round(img.width * scale));
+      const height = Math.max(1, Math.round(img.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas not supported");
+
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const toBlob = (quality: number) =>
+        new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error("Compression failed"))),
+            "image/jpeg",
+            quality,
+          );
+        });
+
+      let quality = 0.8;
+      let blob = await toBlob(quality);
+      while (blob.size > TARGET_MAX_BYTES && quality > 0.3) {
+        quality = Math.max(0.3, Math.round((quality - 0.1) * 10) / 10);
+        blob = await toBlob(quality);
+        if (quality === 0.3) break;
+      }
+
+      const name = file.name.replace(/\.[^.]+$/, "");
+      return new File([blob], `${name}.jpg`, { type: "image/jpeg" });
+    } finally {
+      URL.revokeObjectURL(objectUrl);
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Image must be under 5MB", variant: "destructive" });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      photoUploadMutation.mutate(result);
-    };
-    reader.readAsDataURL(file);
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
     e.target.value = "";
+    if (files.length === 0) return;
+
+    const currentCount = (listing?.photos || []).length;
+    if (currentCount >= 8) {
+      toast({ title: "Maximum 8 photos allowed", variant: "destructive" });
+      return;
+    }
+
+    const remaining = Math.max(0, 8 - currentCount);
+    if (files.length > remaining) {
+      toast({
+        title: "Too many photos selected",
+        description: `You can only add ${remaining} more photo(s).`,
+        variant: "destructive",
+      });
+    }
+
+    const toUpload = files.slice(0, remaining);
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/jpg"];
+    setIsUploadingPhotos(true);
+    try {
+      for (const file of toUpload) {
+        if (!file.type.startsWith("image/") || (file.type && !allowedTypes.includes(file.type))) {
+          toast({
+            title: "Invalid file type",
+            description: "Please upload JPG, PNG, WebP, or HEIC images.",
+            variant: "destructive",
+          });
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: "Maximum size is 10MB.",
+            variant: "destructive",
+          });
+          continue;
+        }
+        let uploadFile = file;
+        try {
+          uploadFile = await compressImageIfNeeded(file);
+        } catch {
+          // If compression fails, fallback to original file.
+        }
+        const base64 = await readFileAsDataUrl(uploadFile);
+        await photoUploadMutation.mutateAsync(base64);
+      }
+    } finally {
+      setIsUploadingPhotos(false);
+    }
   };
 
   if (isLoading) {
@@ -303,7 +465,23 @@ export default function ListingDetailPage() {
 
   const listingPhotos = listing.photos || [];
 
-  const connectedChannels = data?.channels?.filter(ch => ch.status === "CONNECTED") || [];
+  const userChannelStatuses = data?.channels || [];
+  const connectedChannels = userChannelStatuses.filter(
+    (ch) => ch.status === "CONNECTED" || ch.status === "ERROR",
+  );
+  const userHasAnyConnectedChannels = connectedChannels.length > 0;
+
+  const listingConnectedChannels = (listing.channels || []).map((ch) => {
+    const status = userChannelStatuses.find((s) => s.channelKey === ch.channelKey);
+    return {
+      channelKey: ch.channelKey,
+      channelName: ch.channelName,
+      channelId: status?.channelId,
+      status: status?.status,
+      lastSyncAt: status?.lastSyncAt,
+      lastError: status?.lastError,
+    };
+  });
 
   const handleSave = () => {
     setIsEditing(false);
@@ -336,7 +514,8 @@ export default function ListingDetailPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        multiple
+        accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
         className="hidden"
         onChange={handleFileSelected}
         data-testid="input-photo-file"
@@ -397,6 +576,88 @@ export default function ListingDetailPage() {
       </div>
 
       <div className="px-4 pt-4 space-y-5">
+        <section>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <Label className="text-xs text-muted-foreground block">Photos</Label>
+            <Badge
+              variant="secondary"
+              className="text-[11px] px-2 py-0.5"
+              data-testid="badge-photo-count"
+            >
+              {listingPhotos.length}/8
+            </Badge>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {listingPhotos.length === 0 && (
+              <>
+                <div className="relative w-full aspect-square">
+                  <Image
+                    src={getListingImage(listing.name)}
+                    alt={`${listing.name} photo 1`}
+                    fill
+                    className="object-cover rounded-md"
+                    data-testid="img-listing-photo-default-1"
+                  />
+                </div>
+                <div className="relative w-full aspect-square opacity-90">
+                  <Image
+                    src={getListingImage(listing.name)}
+                    alt={`${listing.name} photo 2`}
+                    fill
+                    className="object-cover rounded-md"
+                    data-testid="img-listing-photo-default-2"
+                  />
+                </div>
+              </>
+            )}
+            {listingPhotos.map((photo, idx) => (
+              <div key={idx} className="relative group w-full aspect-square">
+                <Image
+                  src={photo}
+                  alt={`${listing.name} photo ${idx + 1}`}
+                  fill
+                  className="object-cover rounded-md"
+                  data-testid={`img-listing-photo-${idx}`}
+                />
+                <button
+                  className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ visibility: "visible" }}
+                  onClick={() => setPhotoDeleteTarget(photo)}
+                  data-testid={`button-delete-photo-${idx}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <div
+              className={`w-full aspect-square rounded-md bg-muted flex flex-col items-center justify-center gap-1 ${
+                listingPhotos.length >= 8
+                  ? "opacity-60 cursor-not-allowed"
+                  : "cursor-pointer hover-elevate active-elevate-2"
+              }`}
+              onClick={() => {
+                if (listingPhotos.length >= 8 || isUploadingPhotos) return;
+                handlePhotoUpload();
+              }}
+              data-testid="button-add-photo"
+            >
+              {isUploadingPhotos || photoUploadMutation.isPending ? (
+                <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+              ) : (
+                <>
+                  <Plus className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    {listingPhotos.length >= 8 ? "Limit reached" : "Add Photo"}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Maximum 8 photos per unit.
+          </p>
+        </section>
+
         <section>
           <Label className="text-xs text-muted-foreground mb-1.5 block">Location</Label>
           <div className="flex items-center gap-2">
@@ -553,7 +814,7 @@ export default function ListingDetailPage() {
             </div>
             {listing.avgPrice !== null && (
               <p className="text-xs text-muted-foreground" data-testid="text-avg-booking">
-                Avg. booking total: ${listing.avgPrice}
+                Avg. booking total: {formatMoney(listing.avgPrice, listing.currency)}
               </p>
             )}
           </div>
@@ -562,7 +823,7 @@ export default function ListingDetailPage() {
         <section>
           <div className="flex items-center justify-between gap-2 mb-2">
             <Label className="text-xs text-muted-foreground block">Connected channels</Label>
-            {connectedChannels.length > 0 && (
+            {userHasAnyConnectedChannels ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -570,36 +831,87 @@ export default function ListingDetailPage() {
                 data-testid="button-sync-channels"
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />
-                Sync
+                + Sync
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setLocation("/channels")}
+                data-testid="button-connect-channels-from-listing"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Connect
               </Button>
             )}
           </div>
-          {listing.channels.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {listing.channels.map((ch) => (
-                <div
-                  key={ch.channelKey}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border"
-                  data-testid={`listing-channel-${ch.channelKey.toLowerCase()}`}
-                >
-                  <ChannelIcon channelKey={ch.channelKey} size={14} />
-                  <span className="text-xs">{ch.channelName}</span>
-                </div>
-              ))}
+          {listingConnectedChannels.length > 0 ? (
+            <div className="space-y-2">
+              {listingConnectedChannels.map((ch) => {
+                const isError = ch.status === "ERROR";
+                const isConnected = ch.status === "CONNECTED";
+                const badgeLabel = isError ? "Error" : isConnected ? "Active" : "Paused";
+                const badgeClass = isError
+                  ? "bg-red-100 text-red-700"
+                  : "bg-emerald-100 text-emerald-700";
+
+                return (
+                  <div
+                    key={ch.channelKey}
+                    className="flex items-center justify-between gap-3 p-3 rounded-md border"
+                    data-testid={`listing-channel-${String(ch.channelKey).toLowerCase()}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted flex-shrink-0">
+                        <ChannelIcon channelKey={ch.channelKey as any} size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{ch.channelName}</p>
+                        {ch.lastSyncAt ? (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Synced {formatDistanceToNow(parseISO(ch.lastSyncAt), { addSuffix: true })}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-0.5">Not synced yet</p>
+                        )}
+                        {isError && ch.lastError && (
+                          <p className="text-xs text-destructive truncate mt-0.5">{ch.lastError}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs no-default-hover-elevate no-default-active-elevate ${badgeClass}`}
+                      >
+                        {badgeLabel}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!ch.channelId || disconnectChannelMutation.isPending}
+                        onClick={() => {
+                          if (!ch.channelId) return;
+                          setDisconnectTarget({
+                            channelKey: ch.channelKey as any,
+                            channelId: ch.channelId,
+                            channelName: ch.channelName,
+                          });
+                          setDisconnectConfirmText("");
+                        }}
+                        data-testid={`button-disconnect-channel-${String(ch.channelKey).toLowerCase()}`}
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex items-center gap-3 p-3 rounded-md border">
               <p className="text-xs text-muted-foreground flex-1">No channels connected.</p>
-              {connectedChannels.length > 0 && (
-                <Button
-                  size="sm"
-                  onClick={() => setSyncDialogOpen(true)}
-                  data-testid="button-sync-channels-empty"
-                >
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                  Sync from apps
-                </Button>
-              )}
             </div>
           )}
         </section>
@@ -678,67 +990,6 @@ export default function ListingDetailPage() {
                 </Badge>
               );
             })}
-          </div>
-        </section>
-
-        <section>
-          <Label className="text-xs text-muted-foreground mb-2 block">Photos</Label>
-          <div className="grid grid-cols-3 gap-2">
-            {listingPhotos.length === 0 && (
-              <>
-                <div className="relative w-full aspect-square">
-                  <Image
-                    src={getListingImage(listing.name)}
-                    alt={`${listing.name} photo 1`}
-                    fill
-                    className="object-cover rounded-md"
-                    data-testid="img-listing-photo-default-1"
-                  />
-                </div>
-                <div className="relative w-full aspect-square opacity-90">
-                  <Image
-                    src={getListingImage(listing.name)}
-                    alt={`${listing.name} photo 2`}
-                    fill
-                    className="object-cover rounded-md"
-                    data-testid="img-listing-photo-default-2"
-                  />
-                </div>
-              </>
-            )}
-            {listingPhotos.map((photo, idx) => (
-              <div key={idx} className="relative group w-full aspect-square">
-                <Image
-                  src={photo}
-                  alt={`${listing.name} photo ${idx + 1}`}
-                  fill
-                  className="object-cover rounded-md"
-                  data-testid={`img-listing-photo-${idx}`}
-                />
-                <button
-                  className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ visibility: "visible" }}
-                  onClick={() => photoDeleteMutation.mutate(photo)}
-                  data-testid={`button-delete-photo-${idx}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-            <div
-              className="w-full aspect-square rounded-md bg-muted flex flex-col items-center justify-center cursor-pointer hover-elevate active-elevate-2 gap-1"
-              onClick={handlePhotoUpload}
-              data-testid="button-add-photo"
-            >
-              {photoUploadMutation.isPending ? (
-                <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-              ) : (
-                <>
-                  <Plus className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground font-medium">Add Photo</span>
-                </>
-              )}
-            </div>
           </div>
         </section>
 
@@ -850,6 +1101,117 @@ export default function ListingDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!photoDeleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setPhotoDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent data-testid="dialog-delete-photo">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Photo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This photo will be permanently deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-photo">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!photoDeleteTarget) return;
+                photoDeleteMutation.mutate(photoDeleteTarget);
+              }}
+              data-testid="button-confirm-delete-photo"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!disconnectTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDisconnectTarget(null);
+            setDisconnectConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent data-testid="dialog-disconnect-channel">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Channel from Unit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="block font-medium text-destructive">
+                Warning: data will be permanently deleted.
+              </span>
+              <span className="block mt-2">
+                Disconnecting{" "}
+                <span className="font-semibold">
+                  {disconnectTarget?.channelName}
+                </span>{" "}
+                will delete all bookings and messages synced from this channel
+                for this unit.
+              </span>
+              <span className="block mt-3">
+                Type <span className="font-semibold">DELETE</span> to confirm:
+              </span>
+              <Input
+                value={disconnectConfirmText}
+                onChange={(e) => setDisconnectConfirmText(e.target.value)}
+                className="mt-2"
+                placeholder="DELETE"
+                data-testid="input-disconnect-confirm"
+              />
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!disconnectTarget?.channelId) return;
+                    try {
+                      await exportBookings(disconnectTarget.channelId);
+                      toast({ title: "Export started" });
+                    } catch {
+                      toast({ title: "Export failed", variant: "destructive" });
+                    }
+                  }}
+                  data-testid="button-export-bookings"
+                >
+                  Export bookings before disconnect
+                </Button>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-disconnect">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={
+                disconnectConfirmText !== "DELETE" ||
+                disconnectChannelMutation.isPending ||
+                !disconnectTarget?.channelId
+              }
+              onClick={() => {
+                if (!disconnectTarget?.channelId) return;
+                disconnectChannelMutation.mutate({
+                  channelId: disconnectTarget.channelId,
+                });
+              }}
+              data-testid="button-confirm-disconnect"
+            >
+              {disconnectChannelMutation.isPending
+                ? "Disconnecting..."
+                : "Delete bookings & disconnect"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
