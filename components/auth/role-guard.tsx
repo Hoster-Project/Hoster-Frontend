@@ -16,11 +16,19 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
 
   useEffect(() => {
     if (!isLoading && user) {
+      const verified = Boolean(user.emailVerified) || Boolean(user.emailVerifiedAt);
+      if (!verified) {
+        if (!window.location.pathname.startsWith("/verify-email")) {
+          router.push("/verify-email");
+        }
+        return;
+      }
+
       if (!allowedRoles.includes(user.role)) {
         // Logged in but wrong role
         if (user.role === "admin" && !window.location.pathname.startsWith("/admin")) {
           router.push("/admin");
-        } else if (user.role === "provider" && !window.location.pathname.startsWith("/provider")) {
+        } else if ((user.role === "provider" || user.role === "employee") && !window.location.pathname.startsWith("/provider")) {
           router.push("/provider");
         } else if (user.role === "host" && !window.location.pathname.startsWith("/dashboard")) {
           router.push("/dashboard");
@@ -42,7 +50,8 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   }
 
   // Prevent flash of unauthorized content while redirecting
-  if (!user || !allowedRoles.includes(user.role)) {
+  const verified = Boolean(user?.emailVerified) || Boolean(user?.emailVerifiedAt);
+  if (!user || !verified || !allowedRoles.includes(user.role)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -604,18 +604,19 @@ interface SubscriptionData {
 
 function SubscriptionSection() {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data, isLoading } = useQuery<SubscriptionData>({
-    queryKey: ["/api/subscription"],
+    queryKey: ["/api/auth/subscription"],
   });
 
   const changePlan = useMutation({
     mutationFn: async (plan: string) => {
-      const res = await apiRequest("PATCH", "/api/subscription", { plan });
+      const res = await apiRequest("PATCH", "/api/auth/subscription", { plan });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/subscription"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({ title: "Plan updated" });
     },

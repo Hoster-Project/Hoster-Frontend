@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ClipboardList,
   Home,
@@ -35,7 +37,11 @@ import {
   User,
   Mail,
   Phone,
+  Briefcase,
+  History,
+  Repeat2,
 } from "lucide-react";
+import ProviderCompanyAdminDashboard from "./provider-company-admin-dashboard";
 
 type AuthUser = {
   id: string;
@@ -102,7 +108,50 @@ type Message = {
   sentAt: string;
 };
 
-type TabId = "requests" | "properties" | "reviews" | "chat";
+type VisitReport = {
+  id: string;
+  subscriptionId: string;
+  listingId: string;
+  listingName?: string;
+  visitDate: string;
+  notes?: string | null;
+  photos?: string[];
+  createdAt?: string;
+};
+
+type TabId = "requests" | "properties" | "history" | "reviews" | "chat" | "marketplace";
+
+type MarketplaceAssignment = {
+  id: string;
+  taskId: string;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
+  createdAt?: string;
+  task: {
+    id: string;
+    serviceType: "CLEANING" | "MAINTENANCE";
+    scheduledDate: string;
+    scheduledTime?: string | null;
+    locationAddress: string;
+    status: "PENDING" | "RESERVED" | "WORKING" | "APPROVAL_PENDING" | "COMPLETED" | "REJECTED" | "CANCELLED";
+    host: {
+      firstName: string;
+      lastName: string;
+      email?: string | null;
+      phone?: string | null;
+    };
+    company?: { name: string | null; companyType?: string | null } | null;
+    completion?: {
+      id: string;
+      submittedAt?: string | null;
+      hostApproved: boolean;
+      adminApproved: boolean | null;
+      isFinalApproved: boolean;
+      images?: Array<{ id: string; imageUrl: string }>;
+    } | null;
+  };
+};
+
+type MarketplaceTaskFilter = "pending" | "open" | "delivered" | "accepted" | "rejected";
 
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
 import * as Yup from "yup";
@@ -297,6 +346,7 @@ function RequestsTab() {
   const queryClient = useQueryClient();
   const [declineId, setDeclineId] = useState<string | null>(null);
   const [declineMsg, setDeclineMsg] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "ACCEPTED" | "DECLINED">("ALL");
 
   const { data: subs, isLoading } = useQuery<Subscription[]>({
     queryKey: ["/api/provider/subscriptions"],
@@ -320,6 +370,11 @@ function RequestsTab() {
   const pending = subs?.filter((s) => s.status === "PENDING") ?? [];
   const accepted = subs?.filter((s) => s.status === "ACCEPTED") ?? [];
   const declined = subs?.filter((s) => s.status === "DECLINED") ?? [];
+  const filteredSubs = useMemo(() => {
+    if (!subs) return [];
+    if (statusFilter === "ALL") return subs;
+    return subs.filter((s) => s.status === statusFilter);
+  }, [subs, statusFilter]);
 
   if (isLoading) {
     return (
@@ -340,11 +395,48 @@ function RequestsTab() {
   }
 
   return (
-    <div className="p-4 space-y-4" data-testid="tab-requests">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary" data-testid="badge-pending-count">Pending: {pending.length}</Badge>
-        <Badge variant="secondary" data-testid="badge-accepted-count">Accepted: {accepted.length}</Badge>
-        <Badge variant="secondary" data-testid="badge-declined-count">Declined: {declined.length}</Badge>
+    <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto w-full" data-testid="tab-requests">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Button
+          size="sm"
+          variant={statusFilter === "ALL" ? "default" : "outline"}
+          onClick={() => setStatusFilter("ALL")}
+          className="justify-between"
+          data-testid="filter-all"
+        >
+          <span>All</span>
+          <Badge variant="secondary">{subs?.length ?? 0}</Badge>
+        </Button>
+        <Button
+          size="sm"
+          variant={statusFilter === "PENDING" ? "default" : "outline"}
+          onClick={() => setStatusFilter("PENDING")}
+          className="justify-between"
+          data-testid="filter-pending"
+        >
+          <span>Pending</span>
+          <Badge variant="secondary">{pending.length}</Badge>
+        </Button>
+        <Button
+          size="sm"
+          variant={statusFilter === "ACCEPTED" ? "default" : "outline"}
+          onClick={() => setStatusFilter("ACCEPTED")}
+          className="justify-between"
+          data-testid="filter-accepted"
+        >
+          <span>Accepted</span>
+          <Badge variant="secondary">{accepted.length}</Badge>
+        </Button>
+        <Button
+          size="sm"
+          variant={statusFilter === "DECLINED" ? "default" : "outline"}
+          onClick={() => setStatusFilter("DECLINED")}
+          className="justify-between"
+          data-testid="filter-declined"
+        >
+          <span>Declined</span>
+          <Badge variant="secondary">{declined.length}</Badge>
+        </Button>
       </div>
 
       {(!subs || subs.length === 0) && (
@@ -354,7 +446,14 @@ function RequestsTab() {
         </div>
       )}
 
-      {subs?.map((sub) => (
+      {subs && subs.length > 0 && filteredSubs.length === 0 && (
+        <div className="text-center py-12">
+          <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">No requests in this filter.</p>
+        </div>
+      )}
+
+      {filteredSubs.map((sub) => (
         <Card key={sub.id} className="p-4" data-testid={`card-request-${sub.id}`}>
           <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <div className="flex items-center gap-3">
@@ -392,20 +491,25 @@ function RequestsTab() {
           {sub.listings.length > 0 && (
             <div className="mb-3">
               <p className="text-xs font-medium text-muted-foreground mb-2">Properties</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {sub.listings.map((l) => (
-                  <div key={l.id} className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1">
+                  <div key={l.id} className="grid grid-cols-[32px_minmax(0,1fr)] items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5">
                     {l.photos && l.photos.length > 0 && (
-                      <Image 
-                        src={l.photos[0]} 
-                        alt={l.name} 
+                      <Image
+                        src={l.photos[0]}
+                        alt={l.name}
                         width={32}
                         height={32}
-                        className="rounded-md object-cover"
+                        className="h-8 w-8 rounded-md object-cover"
                         unoptimized
                       />
                     )}
-                    <span className="text-xs font-medium">{l.name}</span>
+                    {!l.photos || l.photos.length === 0 ? (
+                      <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
+                        <Home className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    ) : null}
+                    <span className="text-xs font-medium truncate" title={l.name}>{l.name}</span>
                   </div>
                 ))}
               </div>
@@ -496,6 +600,19 @@ function PropertiesTab() {
   const { data: subs, isLoading } = useQuery<Subscription[]>({
     queryKey: ["/api/provider/subscriptions"],
   });
+  const { data: reports, isLoading: loadingReports } = useQuery<VisitReport[]>({
+    queryKey: ["/api/provider/visit-reports"],
+  });
+
+  const reportsByListing = useMemo(() => {
+    const map = new Map<string, VisitReport[]>();
+    for (const r of reports || []) {
+      const arr = map.get(r.listingId) || [];
+      arr.push(r);
+      map.set(r.listingId, arr);
+    }
+    return map;
+  }, [reports]);
 
   const accepted = subs?.filter((s) => s.status === "ACCEPTED") ?? [];
 
@@ -516,8 +633,15 @@ function PropertiesTab() {
         credentials: "include",
       });
       if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || res.statusText);
+        let message = res.statusText || "Failed to upload report";
+        try {
+          const body = await res.json();
+          if (body?.message) message = String(body.message);
+        } catch {
+          const t = await res.text();
+          if (t) message = t;
+        }
+        throw new Error(message);
       }
       return res.json();
     },
@@ -804,23 +928,25 @@ function PropertiesTab() {
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex items-center gap-2">
                               <Label className="text-xs text-muted-foreground w-14">Category</Label>
-                              <select
-                                className="h-9 flex-1 rounded-md border bg-card px-2 text-sm"
+                              <Select
                                 value={p.category}
-                                onChange={(e) => {
-                                  const v = e.target.value;
+                                onValueChange={(v) => {
                                   setPhotos((prev) =>
-                                    prev.map((x, i) => (i === idx ? { ...x, category: v } : x)),
+                                    prev.map((x, i) => (i === actualIndex ? { ...x, category: v } : x)),
                                   );
                                 }}
-                                data-testid={`select-photo-category-${idx}`}
                               >
-                                <option value="after">After Cleaning</option>
-                                <option value="before">Before Cleaning</option>
-                                <option value="damage">Damage Found</option>
-                                <option value="missing">Missing Items</option>
-                                <option value="other">Other Issues</option>
-                              </select>
+                                <SelectTrigger className="h-9 flex-1" data-testid={`select-photo-category-${idx}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="after">After Cleaning</SelectItem>
+                                  <SelectItem value="before">Before Cleaning</SelectItem>
+                                  <SelectItem value="damage">Damage Found</SelectItem>
+                                  <SelectItem value="missing">Missing Items</SelectItem>
+                                  <SelectItem value="other">Other Issues</SelectItem>
+                                </SelectContent>
+                              </Select>
                               <Button
                                 type="button"
                                 size="icon"
@@ -911,7 +1037,7 @@ function PropertiesTab() {
   }
 
   return (
-    <div className="p-4 space-y-4" data-testid="tab-properties">
+    <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto w-full" data-testid="tab-properties">
       {accepted.length === 0 && (
         <div className="text-center py-12">
           <Home className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
@@ -933,39 +1059,163 @@ function PropertiesTab() {
           </div>
           <Separator className="mb-3" />
           <div className="space-y-3">
-            {sub.listings.map((l) => (
-              <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/30 p-3">
-                <div className="flex items-center gap-3">
-                  {l.photos && l.photos.length > 0 ? (
-                    <Image 
-                      src={l.photos[0]} 
-                      alt={l.name} 
-                      width={48} 
-                      height={48} 
-                      className="rounded-md object-cover" 
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center">
-                      <Home className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  )}
-                  <span className="font-medium text-sm" data-testid={`text-listing-name-${l.id}`}>{l.name}</span>
+            {sub.listings.map((l) => {
+              const listingReports = reportsByListing.get(l.id) || [];
+              const latest = listingReports[0];
+              return (
+              <div key={l.id} className="rounded-md bg-muted/30 p-3 space-y-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {l.photos && l.photos.length > 0 ? (
+                      <Image
+                        src={l.photos[0]}
+                        alt={l.name}
+                        width={48}
+                        height={48}
+                        className="h-12 w-12 rounded-md object-cover flex-shrink-0"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                        <Home className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <span
+                      className="font-medium text-sm truncate"
+                      data-testid={`text-listing-name-${l.id}`}
+                      title={l.name}
+                    >
+                      {l.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <Badge variant="secondary" className="whitespace-nowrap">
+                      {listingReports.length} report{listingReports.length === 1 ? "" : "s"}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      className="min-w-[110px] justify-center"
+                      onClick={() => setReportForm({ subscriptionId: sub.id, listingId: l.id, listingName: l.name })}
+                      style={{ backgroundColor: "#FF385C", borderColor: "#FF385C" }}
+                      data-testid={`button-report-${l.id}`}
+                    >
+                      <Camera className="h-4 w-4 mr-1" />
+                      New Report
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => setReportForm({ subscriptionId: sub.id, listingId: l.id, listingName: l.name })}
-                  style={{ backgroundColor: "#FF385C", borderColor: "#FF385C" }}
-                  data-testid={`button-report-${l.id}`}
-                >
-                  <Camera className="h-4 w-4 mr-1" />
-                  Visit Report
-                </Button>
+                {latest ? (
+                  <div className="text-xs text-muted-foreground">
+                    Latest report: {new Date(latest.visitDate).toLocaleDateString()} • {latest.photos?.length || 0} photos
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">No report submitted yet for this property.</div>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function VisitHistoryTab({ initialListingId }: { initialListingId: string | null }) {
+  const [listingFilter, setListingFilter] = useState<string>(initialListingId || "all");
+  const [previewPhotos, setPreviewPhotos] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (initialListingId) setListingFilter(initialListingId);
+  }, [initialListingId]);
+
+  const { data: reports, isLoading } = useQuery<VisitReport[]>({
+    queryKey: ["/api/provider/visit-reports"],
+  });
+
+  const listingOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of reports || []) {
+      if (!map.has(r.listingId)) map.set(r.listingId, r.listingName || "Listing");
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [reports]);
+
+  const filtered = (reports || []).filter((r) => listingFilter === "all" || r.listingId === listingFilter);
+
+  return (
+    <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto w-full" data-testid="tab-history">
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-base font-semibold">Visit Report History</h2>
+          <Select value={listingFilter} onValueChange={setListingFilter}>
+            <SelectTrigger className="h-9 w-[180px]" data-testid="select-history-listing">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All properties</SelectItem>
+              {listingOptions.map((opt) => (
+                <SelectItem key={opt.id} value={opt.id}>
+                  {opt.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </Card>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ) : filtered.length > 0 ? (
+        <div className="space-y-3">
+          {filtered.map((r) => (
+            <Card key={r.id} className="p-4" data-testid={`history-report-${r.id}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">{r.listingName || "Listing"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Visit date: {r.visitDate ? new Date(r.visitDate).toLocaleDateString() : "-"}
+                  </p>
+                  {r.notes ? <p className="text-xs text-muted-foreground mt-1">{r.notes}</p> : null}
+                </div>
+                <Badge variant="secondary">{r.photos?.length || 0} photos</Badge>
+              </div>
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!r.photos || r.photos.length === 0}
+                  onClick={() => setPreviewPhotos(r.photos || [])}
+                  data-testid={`button-view-history-photos-${r.id}`}
+                >
+                  View Photos
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="p-6 text-center">
+          <p className="text-sm text-muted-foreground">No reports found for this filter.</p>
+        </Card>
+      )}
+
+      <Dialog open={!!previewPhotos} onOpenChange={(o) => { if (!o) setPreviewPhotos(null); }}>
+        <DialogContent className="w-[min(96vw,980px)] max-w-none max-h-[88vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Report Photos</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {(previewPhotos || []).map((url, idx) => (
+              <div key={`${url}-${idx}`} className="aspect-square rounded-md overflow-hidden border relative">
+                <Image src={url} alt={`Report photo ${idx + 1}`} fill className="object-cover" unoptimized />
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -995,7 +1245,7 @@ function ReviewsTab() {
   }
 
   return (
-    <div className="p-4 space-y-4" data-testid="tab-reviews">
+    <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto w-full" data-testid="tab-reviews">
       <Card className="p-4 text-center">
         <div className="flex items-center justify-center gap-1 mb-1">
           {[1, 2, 3, 4, 5].map((s) => (
@@ -1069,7 +1319,7 @@ function ChatTab() {
   }
 
   return (
-    <div className="p-4 space-y-3" data-testid="tab-chat">
+    <div className="p-4 md:p-6 space-y-3 max-w-4xl mx-auto w-full" data-testid="tab-chat">
       {active.length === 0 && (
         <div className="text-center py-12">
           <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
@@ -1216,14 +1466,328 @@ function ChatThread({ sub, onBack }: { sub: Subscription; onBack: () => void }) 
   );
 }
 
-function ProviderDashboard({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+function MarketplaceTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [availability, setAvailability] = useState<"FREE" | "UNAVAILABLE">("FREE");
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>({});
+  const [taskFilter, setTaskFilter] = useState<MarketplaceTaskFilter>("pending");
+
+  const { data: pending, isLoading: loadingPending } = useQuery<MarketplaceAssignment[]>({
+    queryKey: ["/api/provider/tasks/pending"],
+  });
+  const { data: active, isLoading: loadingActive } = useQuery<MarketplaceAssignment[]>({
+    queryKey: ["/api/provider/tasks/active"],
+  });
+  const { data: all } = useQuery<MarketplaceAssignment[]>({
+    queryKey: ["/api/provider/tasks"],
+  });
+
+  const filteredAll = useMemo(() => {
+    const items = all || [];
+    return items.filter((item) => {
+      const taskStatus = item.task.status;
+      const assignmentStatus = item.status;
+      if (taskFilter === "pending") return assignmentStatus === "PENDING" || taskStatus === "PENDING";
+      if (taskFilter === "open") return ["RESERVED", "WORKING", "APPROVAL_PENDING"].includes(taskStatus);
+      if (taskFilter === "delivered") return taskStatus === "COMPLETED";
+      if (taskFilter === "accepted") return assignmentStatus === "ACCEPTED";
+      return assignmentStatus === "REJECTED" || ["REJECTED", "CANCELLED"].includes(taskStatus);
+    });
+  }, [all, taskFilter]);
+
+  const filterCounts = useMemo(() => {
+    const items = all || [];
+    const countFor = (filter: MarketplaceTaskFilter) =>
+      items.filter((item) => {
+        const taskStatus = item.task.status;
+        const assignmentStatus = item.status;
+        if (filter === "pending") return assignmentStatus === "PENDING" || taskStatus === "PENDING";
+        if (filter === "open") return ["RESERVED", "WORKING", "APPROVAL_PENDING"].includes(taskStatus);
+        if (filter === "delivered") return taskStatus === "COMPLETED";
+        if (filter === "accepted") return assignmentStatus === "ACCEPTED";
+        return assignmentStatus === "REJECTED" || ["REJECTED", "CANCELLED"].includes(taskStatus);
+      }).length;
+    return {
+      pending: countFor("pending"),
+      open: countFor("open"),
+      delivered: countFor("delivered"),
+      accepted: countFor("accepted"),
+      rejected: countFor("rejected"),
+    };
+  }, [all]);
+
+  const availabilityMutation = useMutation({
+    mutationFn: async (state: "FREE" | "UNAVAILABLE") => {
+      const res = await apiRequest("PUT", "/api/provider/availability", { providerState: state });
+      return res.json();
+    },
+    onSuccess: (_data, state) => {
+      setAvailability(state);
+      toast({ title: "Availability updated" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/provider/tasks/${id}/accept`);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/provider/tasks/pending"] });
+      qc.invalidateQueries({ queryKey: ["/api/provider/tasks/active"] });
+      qc.invalidateQueries({ queryKey: ["/api/provider/tasks"] });
+      toast({ title: "Request accepted" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/provider/tasks/${id}/reject`);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/provider/tasks/pending"] });
+      qc.invalidateQueries({ queryKey: ["/api/provider/tasks"] });
+      toast({ title: "Request rejected" });
+    },
+  });
+
+  const submitCompletion = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/provider/tasks/${id}/complete`);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/provider/tasks/active"] });
+      qc.invalidateQueries({ queryKey: ["/api/provider/tasks"] });
+      toast({ title: "Completion submitted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Submission failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const uploadImages = async (taskId: string) => {
+    const files = selectedFiles[taskId] || [];
+    if (!files.length) {
+      toast({ title: "Select images first", variant: "destructive" });
+      return;
+    }
+    try {
+      setUploadingId(taskId);
+      const form = new FormData();
+      files.forEach((file) => form.append("photos", file));
+      const res = await fetch(`/api/provider/tasks/${taskId}/images`, {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      toast({ title: "Images uploaded" });
+      setSelectedFiles((prev) => ({ ...prev, [taskId]: [] }));
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  return (
+    <div className="p-4 md:p-6 space-y-6">
+      <Card>
+        <div className="p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold">Availability</p>
+            <p className="text-xs text-muted-foreground">Control whether you can receive new requests.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={availability === "FREE" ? "default" : "outline"}
+              onClick={() => availabilityMutation.mutate("FREE")}
+              disabled={availabilityMutation.isPending}
+            >
+              Available
+            </Button>
+            <Button
+              variant={availability === "UNAVAILABLE" ? "default" : "outline"}
+              onClick={() => availabilityMutation.mutate("UNAVAILABLE")}
+              disabled={availabilityMutation.isPending}
+            >
+              Unavailable
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold">Pending Requests</h2>
+        {loadingPending ? (
+          <Skeleton className="h-24 w-full rounded-md" />
+        ) : pending && pending.length > 0 ? (
+          pending.map((item) => (
+            <Card key={item.id} className="p-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {item.task.serviceType} • {item.task.company?.name || "Provider"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.task.host.firstName} {item.task.host.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{item.task.locationAddress}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => acceptMutation.mutate(item.taskId)}>
+                    Accept
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate(item.taskId)}>
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">No pending requests.</p>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold">Active Jobs</h2>
+        {loadingActive ? (
+          <Skeleton className="h-24 w-full rounded-md" />
+        ) : active && active.length > 0 ? (
+          active.map((item) => (
+            <Card key={item.id} className="p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold">
+                  {item.task.serviceType} • {item.task.locationAddress}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {item.task.host.firstName} {item.task.host.lastName}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Input
+                  type="file"
+                  multiple
+                  onChange={(e) =>
+                    setSelectedFiles((prev) => ({
+                      ...prev,
+                      [item.taskId]: Array.from(e.target.files || []),
+                    }))
+                  }
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => uploadImages(item.taskId)}
+                  disabled={uploadingId === item.taskId}
+                >
+                  {uploadingId === item.taskId ? "Uploading..." : "Upload Images"}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => submitCompletion.mutate(item.taskId)}
+                  disabled={submitCompletion.isPending}
+                >
+                  Submit Completion
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Upload 8 images before submitting.</p>
+            </Card>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">No active jobs.</p>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold">All Assignments</h2>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={taskFilter === "pending" ? "default" : "outline"}
+            onClick={() => setTaskFilter("pending")}
+          >
+            Pending ({filterCounts.pending})
+          </Button>
+          <Button
+            size="sm"
+            variant={taskFilter === "open" ? "default" : "outline"}
+            onClick={() => setTaskFilter("open")}
+          >
+            Open ({filterCounts.open})
+          </Button>
+          <Button
+            size="sm"
+            variant={taskFilter === "delivered" ? "default" : "outline"}
+            onClick={() => setTaskFilter("delivered")}
+          >
+            Delivered ({filterCounts.delivered})
+          </Button>
+          <Button
+            size="sm"
+            variant={taskFilter === "accepted" ? "default" : "outline"}
+            onClick={() => setTaskFilter("accepted")}
+          >
+            Accepted ({filterCounts.accepted})
+          </Button>
+          <Button
+            size="sm"
+            variant={taskFilter === "rejected" ? "default" : "outline"}
+            onClick={() => setTaskFilter("rejected")}
+          >
+            Rejected ({filterCounts.rejected})
+          </Button>
+        </div>
+        {filteredAll.length > 0 ? (
+          filteredAll.map((item) => (
+            <Card key={item.id} className="p-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {item.task.serviceType} • {item.task.status}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{item.task.locationAddress}</p>
+                </div>
+                <Badge variant="secondary">{item.status}</Badge>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">No assignments in this filter.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProviderDashboard({
+  user,
+  onLogout,
+  canSwitchMode = false,
+  onSwitchMode,
+}: {
+  user: AuthUser;
+  onLogout: () => void;
+  canSwitchMode?: boolean;
+  onSwitchMode?: () => void;
+}) {
   const [activeTab, setActiveTab] = useState<TabId>("requests");
 
   const tabs: Array<{ id: TabId; label: string; icon: typeof ClipboardList }> = [
     { id: "requests", label: "Requests", icon: ClipboardList },
     { id: "properties", label: "Properties", icon: Home },
+    { id: "history", label: "History", icon: History },
     { id: "reviews", label: "Reviews", icon: Star },
     { id: "chat", label: "Chat", icon: MessageSquare },
+    { id: "marketplace", label: "Marketplace", icon: Briefcase },
   ];
 
   return (
@@ -1263,25 +1827,44 @@ function ProviderDashboard({ user, onLogout }: { user: AuthUser; onLogout: () =>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
+            <div className="mt-2 flex items-center justify-center gap-3 text-[11px] text-muted-foreground">
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                Terms
+              </Link>
+              <span aria-hidden="true">•</span>
+              <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                Privacy
+              </Link>
+            </div>
           </div>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 flex items-center justify-between gap-2 px-4 border-b border-border/50 sticky top-0 z-50 bg-background md:hidden">
+        <header className="h-14 flex items-center justify-between gap-2 px-4 border-b border-border/50 sticky top-0 z-50 bg-background">
           <span className="text-lg font-extrabold tracking-tight" style={{ color: "#FF385C" }} data-testid="text-dashboard-logo">
             Provider Portal
           </span>
-          <Button size="icon" aria-label="Logout" variant="ghost" onClick={onLogout} data-testid="button-logout">
-            <LogOut className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {canSwitchMode && (
+              <Button size="sm" variant="outline" onClick={onSwitchMode} data-testid="button-switch-to-company-admin">
+                <Repeat2 className="h-4 w-4 mr-1" />
+                Admin Mode
+              </Button>
+            )}
+            <Button size="icon" aria-label="Logout" variant="ghost" onClick={onLogout} data-testid="button-logout">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-6 w-full">
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-6 w-full bg-muted/20">
           {activeTab === "requests" && <RequestsTab />}
           {activeTab === "properties" && <PropertiesTab />}
+          {activeTab === "history" && <VisitHistoryTab initialListingId={null} />}
           {activeTab === "reviews" && <ReviewsTab />}
           {activeTab === "chat" && <ChatTab />}
+          {activeTab === "marketplace" && <MarketplaceTab />}
         </main>
 
         <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border/50 z-50 safe-area-bottom md:hidden" data-testid="nav-bottom-tabs">
@@ -1313,8 +1896,13 @@ function ProviderDashboard({ user, onLogout }: { user: AuthUser; onLogout: () =>
 export default function ProviderPortal() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [mode, setMode] = useState<"provider" | "company-admin">("provider");
 
-  const { data: authData, isLoading, refetch } = useQuery<{ isProvider: boolean; user: AuthUser | null }>({
+  const { data: authData, isLoading, refetch } = useQuery<{
+    isProvider: boolean;
+    isCompanyAdmin?: boolean;
+    user: AuthUser | null;
+  }>({
     queryKey: ["/api/provider/auth-check"],
     retry: false,
     staleTime: 0,
@@ -1326,13 +1914,22 @@ export default function ProviderPortal() {
     },
     onSuccess: () => {
       queryClient.clear();
-      refetch();
+      window.location.href = "/";
     },
     onError: () => {
       queryClient.clear();
-      refetch();
+      window.location.href = "/";
     },
   });
+
+  useEffect(() => {
+    if (!authData) return;
+    if (authData.isCompanyAdmin && authData.isProvider) {
+      setMode("company-admin");
+      return;
+    }
+    setMode(authData.isCompanyAdmin ? "company-admin" : "provider");
+  }, [authData]);
 
   if (isLoading) {
     return (
@@ -1342,9 +1939,27 @@ export default function ProviderPortal() {
     );
   }
 
-  if (!authData?.isProvider || !authData.user) {
+  if ((!authData?.isProvider && !authData?.isCompanyAdmin) || !authData.user) {
     return <LoginScreen onAuth={() => refetch()} />;
   }
 
-  return <ProviderDashboard user={authData.user} onLogout={() => logoutMutation.mutate()} />;
+  if (authData.isCompanyAdmin && mode === "company-admin") {
+    return (
+      <ProviderCompanyAdminDashboard
+        user={authData.user}
+        onLogout={() => logoutMutation.mutate()}
+        canSwitchMode={authData.isProvider}
+        onSwitchMode={authData.isProvider ? () => setMode("provider") : undefined}
+      />
+    );
+  }
+
+  return (
+    <ProviderDashboard
+      user={authData.user}
+      onLogout={() => logoutMutation.mutate()}
+      canSwitchMode={authData.isCompanyAdmin}
+      onSwitchMode={authData.isCompanyAdmin ? () => setMode("company-admin") : undefined}
+    />
+  );
 }

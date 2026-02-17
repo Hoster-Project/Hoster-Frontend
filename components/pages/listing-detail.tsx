@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft,
+  Image as ImageIcon,
   MapPin,
   DollarSign,
   BedDouble,
@@ -66,17 +67,6 @@ import {
 import type { ChannelKey } from "@/lib/constants";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { formatMoney } from "@/lib/money";
-
-const LISTING_IMAGES: Record<string, string> = {
-  "Sunny Beach Studio": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop",
-  "Downtown Loft": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop",
-  "Mountain View Cabin": "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800&h=600&fit=crop",
-  "Riverside Apartment": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop",
-  "Garden Villa": "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop",
-  "Lake House Retreat": "https://images.unsplash.com/photo-1499793983394-e58fc2fce9bf?w=800&h=600&fit=crop",
-};
-
-const DEFAULT_PROPERTY_IMAGE = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop";
 
 const LISTING_DESCRIPTIONS: Record<string, string> = {
   "Sunny Beach Studio": "A bright and airy studio just steps from the beach. Perfect for couples or solo travelers looking for a relaxing getaway. Features a fully equipped kitchen, comfortable queen bed, and a private balcony with ocean views.",
@@ -128,10 +118,6 @@ const ALL_AMENITIES = [
 ];
 
 const DEFAULT_AMENITIES = ["Wi-Fi", "Parking", "AC", "Kitchen", "TV"];
-
-function getListingImage(name: string): string {
-  return LISTING_IMAGES[name] || DEFAULT_PROPERTY_IMAGE;
-}
 
 function getAmenityIcon(label: string) {
   const found = ALL_AMENITIES.find(a => a.label === label);
@@ -522,14 +508,25 @@ export default function ListingDetailPage() {
       />
 
       <div className="relative h-44">
-        <Image
-          src={listingPhotos.length > 0 ? listingPhotos[0] : getListingImage(listing.name)}
-          alt={listing.name}
-          fill
-          className="object-cover"
-          data-testid="img-listing-hero"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        {listingPhotos.length > 0 ? (
+          <>
+            <Image
+              src={listingPhotos[0]}
+              alt={listing.name}
+              fill
+              className="object-cover"
+              data-testid="img-listing-hero"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground">
+            <div className="flex flex-col items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              <span className="text-xs">No photos yet</span>
+            </div>
+          </div>
+        )}
         <button
           className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-black/30 text-white text-sm"
           onClick={() => setLocation("/settings")}
@@ -589,26 +586,9 @@ export default function ListingDetailPage() {
           </div>
           <div className="grid grid-cols-3 gap-2">
             {listingPhotos.length === 0 && (
-              <>
-                <div className="relative w-full aspect-square">
-                  <Image
-                    src={getListingImage(listing.name)}
-                    alt={`${listing.name} photo 1`}
-                    fill
-                    className="object-cover rounded-md"
-                    data-testid="img-listing-photo-default-1"
-                  />
-                </div>
-                <div className="relative w-full aspect-square opacity-90">
-                  <Image
-                    src={getListingImage(listing.name)}
-                    alt={`${listing.name} photo 2`}
-                    fill
-                    className="object-cover rounded-md"
-                    data-testid="img-listing-photo-default-2"
-                  />
-                </div>
-              </>
+              <div className="col-span-3 flex items-center justify-center rounded-md border border-dashed bg-muted/30 py-6 text-xs text-muted-foreground">
+                No photos yet. Add photos to showcase your unit.
+              </div>
             )}
             {listingPhotos.map((photo, idx) => (
               <div key={idx} className="relative group w-full aspect-square">
@@ -620,9 +600,9 @@ export default function ListingDetailPage() {
                   data-testid={`img-listing-photo-${idx}`}
                 />
                 <button
-                  className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ visibility: "visible" }}
+                  className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                   onClick={() => setPhotoDeleteTarget(photo)}
+                  aria-label="Remove photo"
                   data-testid={`button-delete-photo-${idx}`}
                 >
                   <X className="h-3 w-3" />

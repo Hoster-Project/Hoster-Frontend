@@ -52,7 +52,9 @@ export default function VerifyOtpPage() {
           {digits.map((d, idx) => (
             <input
               key={idx}
-              ref={(el) => (inputsRef.current[idx] = el)}
+              ref={(el) => {
+                inputsRef.current[idx] = el;
+              }}
               type="text"
               inputMode="numeric"
               maxLength={1}
@@ -95,7 +97,7 @@ export default function VerifyOtpPage() {
               toast({ title: "Email verified" });
               const role = json?.user?.role as string | undefined;
               if (role === "admin") router.push("/admin");
-              else if (role === "provider") router.push("/provider");
+              else if (role === "provider" || role === "employee") router.push("/provider");
               else router.push("/dashboard");
             } catch (err: any) {
               toast({ title: "Verification failed", description: err?.message || "", variant: "destructive" });
@@ -134,4 +136,3 @@ export default function VerifyOtpPage() {
     </div>
   );
 }
-

@@ -13,7 +13,6 @@ import {
   MessageCircle,
   Wrench,
   Sparkles,
-  HelpCircle,
   Globe,
   Zap,
 } from "lucide-react";
@@ -173,26 +172,18 @@ export default function SettingsPage() {
 
       <SettingsLink
         icon={Sparkles}
-        title="Cleaning Services"
-        description="Find and manage cleaning providers"
+        title="Service Providers"
+        description="Subscribe, manage providers, and track service activity"
         href="/settings/cleaning"
         testId="link-cleaning"
       />
 
       <SettingsLink
         icon={Wrench}
-        title="Maintenance"
-        description="Repair and maintenance contacts"
+        title="Maintenance Requests"
+        description="Request maintenance service and approve completed jobs"
         href="/settings/maintenance"
         testId="link-maintenance"
-      />
-
-      <SettingsLink
-        icon={HelpCircle}
-        title="Community Questions"
-        description="Browse questions from other hosts"
-        href="/community-questions"
-        testId="link-community-questions"
       />
 
       <SettingsLink

@@ -45,17 +45,12 @@ import {
  Calendar,
  Zap,
 } from "lucide-react";
-import { format, parseISO, addDays, isWithinInterval } from "date-fns";
+import { format, parseISO } from "date-fns";
 import type { ChannelKey } from "@/lib/constants";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatMoney } from "@/lib/money";
-import eventFoodFestival from "@assets/event-food-festival.png";
-import eventMusicConcert from "@assets/event-music-concert.png";
-import eventArtExhibition from "@assets/event-art-exhibition.png";
-import eventWellnessRetreat from "@assets/event-wellness-retreat.png";
-import eventFarmersMarket from "@assets/event-farmers-market.png";
 
 function getGuestRating(guestName: string): number {
  let hash = 0;
@@ -108,59 +103,18 @@ function getGuestColor(guestName: string): string {
  return colors[Math.abs(hash) % colors.length];
 }
 
-const UPCOMING_EVENTS = [
-  {
-    id: "evt-1",
-    title: "Street Food Festival",
-    location: "Downtown Square",
-    image: eventFoodFestival,
-    daysFromNow: 5,
-    category: "Food & Drink",
-  },
-  {
-    id: "evt-2",
-    title: "Live Music Night",
-    location: "Waterfront Park",
-    image: eventMusicConcert,
-    daysFromNow: 8,
-    category: "Music",
-  },
-  {
-    id: "evt-3",
-    title: "Modern Art Exhibition",
-    location: "City Gallery",
-    image: eventArtExhibition,
-    daysFromNow: 12,
-    category: "Art & Culture",
-  },
-  {
-    id: "evt-4",
-    title: "Sunrise Yoga Retreat",
-    location: "Oceanview Beach",
-    image: eventWellnessRetreat,
-    daysFromNow: 18,
-    category: "Wellness",
-  },
-  {
-    id: "evt-5",
-    title: "Organic Farmers Market",
-    location: "Central Park",
-    image: eventFarmersMarket,
-    daysFromNow: 22,
-    category: "Market",
-  },
-];
-
-function getUpcomingEvents() {
-  const today = new Date();
-  const thirtyDaysFromNow = addDays(today, 30);
-  return UPCOMING_EVENTS.filter((evt) => {
-    const eventDate = addDays(today, evt.daysFromNow);
-    return isWithinInterval(eventDate, { start: today, end: thirtyDaysFromNow });
-  }).map((evt) => ({
-    ...evt,
-    date: addDays(today, evt.daysFromNow),
-  }));
+interface UpcomingEventItem {
+  id: string;
+  title: string;
+  dateText: string | null;
+  whenText: string | null;
+  time: string | null;
+  venue: string | null;
+  address: string[] | null;
+  link: string | null;
+  thumbnail: string | null;
+  type: string | null;
+  price: string | null;
 }
 
 interface ReservationItem {
@@ -230,6 +184,20 @@ export default function HomePage() {
 
  const { data, isLoading } = useQuery<DashboardData>({
  queryKey: ["/api/dashboard"],
+ });
+
+ const {
+  data: eventsData,
+  isLoading: eventsLoading,
+ } = useQuery<{
+  q: string;
+  locationsUsed: string[];
+  fromCache: boolean;
+  configured: boolean;
+  message?: string;
+  events: UpcomingEventItem[];
+ }>({
+  queryKey: ["/api/events/upcoming"],
  });
 
  const updateTaskMutation = useMutation({
@@ -693,8 +661,13 @@ export default function HomePage() {
               </Card>
 
               {(() => {
-                const upcomingEvents = getUpcomingEvents();
-                if (upcomingEvents.length === 0) return null;
+                if (eventsLoading && !eventsData) {
+                  return <Skeleton className="h-40 w-full rounded-md" />;
+                }
+
+                if (!eventsData) return null;
+
+                const upcomingEvents = eventsData.events || [];
                 return (
                   <Card className="p-4" data-testid="card-upcoming-events">
                     <div className="flex items-center gap-1.5 mb-3">
@@ -703,35 +676,76 @@ export default function HomePage() {
                         Upcoming events
                       </span>
                     </div>
-                    <div className="space-y-2.5">
-                      {upcomingEvents.map((evt) => (
-                        <div
-                          key={evt.id}
-                          className="flex items-center gap-3 p-2 -mx-2 rounded-md hover-elevate active-elevate-2 cursor-pointer transition-colors hover:bg-muted/50"
-                          data-testid={`event-${evt.id}`}
-                        >
-                          <div className="relative h-14 w-14 flex-shrink-0">
-                            <Image
-                              src={evt.image}
-                              alt={evt.title}
-                              fill
-                              className="rounded-md object-cover"
-                              data-testid={`img-event-${evt.id}`}
-                            />
+                    {upcomingEvents.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">
+                        {eventsData.message
+                          ? eventsData.message
+                          : eventsData.configured
+                            ? "No events found for your units yet."
+                            : "Events are not configured."}
+                        {eventsData.locationsUsed?.length ? (
+                          <div className="mt-1">
+                            Location(s): {eventsData.locationsUsed.join(" • ")}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate" data-testid={`text-event-title-${evt.id}`}>{evt.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-event-date-${evt.id}`}>
-                              {format(evt.date, "MMM d")}
-                              <span className="mx-1.5 opacity-30">|</span>
-                              {evt.location}
-                            </p>
-                            <Badge variant="secondary" className="mt-1 text-[10px]" data-testid={`badge-event-category-${evt.id}`}>{evt.category}</Badge>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {upcomingEvents.map((evt) => (
+                          <div
+                            key={evt.id}
+                            className="flex items-center gap-3 p-2 -mx-2 rounded-md hover-elevate active-elevate-2 cursor-pointer transition-colors hover:bg-muted/50"
+                            onClick={() => {
+                              if (evt.link)
+                                window.open(
+                                  evt.link,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                );
+                            }}
+                            data-testid={`event-${evt.id}`}
+                          >
+                            <div className="relative h-14 w-14 flex-shrink-0">
+                              {evt.thumbnail ? (
+                                <Image
+                                  src={evt.thumbnail}
+                                  alt={evt.title}
+                                  fill
+                                  className="rounded-md object-cover"
+                                  data-testid={`img-event-${evt.id}`}
+                                />
+                              ) : (
+                                <div className="h-14 w-14 rounded-md bg-muted" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="text-sm font-medium truncate"
+                                data-testid={`text-event-title-${evt.id}`}
+                              >
+                                {evt.title}
+                              </p>
+                              <p
+                                className="text-xs text-muted-foreground mt-0.5"
+                                data-testid={`text-event-date-${evt.id}`}
+                              >
+                                {evt.dateText || evt.whenText || "Upcoming"}
+                                <span className="mx-1.5 opacity-30">|</span>
+                                {evt.venue || evt.address?.[0] || "Local"}
+                              </p>
+                              <Badge
+                                variant="secondary"
+                                className="mt-1 text-[10px]"
+                                data-testid={`badge-event-category-${evt.id}`}
+                              >
+                                {evt.type || "Event"}
+                              </Badge>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </Card>
                 );
               })()}

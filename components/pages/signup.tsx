@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Formik, Form, Field, ErrorMessage, type FormikHelpers } from "formik";
 import * as Yup from "yup";
-import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { ToastAction } from "@/components/ui/toast";
 import {
   Select,
   SelectContent,
@@ -34,7 +36,13 @@ function getPasswordStrength(password: string) {
   if (/[^a-zA-Z0-9]/.test(password)) score += 20;
 
   const label =
-    score <= 40 ? "Weak" : score <= 60 ? "Fair" : score <= 80 ? "Good" : "Strong";
+    score <= 40
+      ? "Weak"
+      : score <= 60
+        ? "Fair"
+        : score <= 80
+          ? "Good"
+          : "Strong";
   const barColor =
     score <= 40
       ? "bg-red-500"
@@ -81,20 +89,23 @@ const SignupSchema = Yup.object().shape({
 });
 
 export default function SignupPage() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { user, isLoading } = useAuth();
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
     if (user && !isLoading) {
-      if (user.role === "admin") router.push("/admin");
-      else if (user.role === "provider") router.push("/provider");
-      else router.push("/dashboard");
+      if (user.role === "provider" || user.role === "employee") {
+        router.push("/provider");
+      } else if (user.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     }
   }, [user, isLoading, router]);
 
@@ -107,11 +118,21 @@ export default function SignupPage() {
       }
       return json;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.removeQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Account created",
-        description: "Check your email to verify your account, then log in.",
+        description: data?.verificationUrl
+          ? "Verification link generated. Continue to verify your email."
+          : "Check your email to verify your account, then log in.",
+        action: data?.verificationUrl ? (
+          <ToastAction
+            altText="Open verification link"
+            onClick={() => window.open(String(data.verificationUrl), "_blank", "noopener,noreferrer")}
+          >
+            Verify
+          </ToastAction>
+        ) : undefined,
       });
       router.push("/login");
     },
@@ -136,318 +157,427 @@ export default function SignupPage() {
   }, [countrySearch]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" data-testid="signup-page">
-      <nav className="h-14 flex items-center px-4 sm:px-6 border-b border-border/50">
-        <Link href="/">
-          <Button variant="ghost" size="sm" data-testid="button-back-landing">
-            <ArrowLeft className="h-4 w-4 mr-1.5" />
-            Back
+    <div
+      className="min-h-[100dvh] bg-muted/30 flex items-start sm:items-center justify-center px-4 py-6 overflow-y-auto"
+      data-testid="signup-page"
+    >
+      <div className="w-full max-w-sm">
+        <div className="mb-2">
+          <Button variant="ghost" size="sm" className="-ml-2" asChild>
+            <Link href="/" data-testid="link-back-landing">
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Back
+            </Link>
           </Button>
-        </Link>
-        <div className="flex-1 text-center pr-16">
-          <Link href="/">
-            <span className="text-xl font-extrabold tracking-tight text-primary" data-testid="text-logo">
-              Hoster
-            </span>
-          </Link>
         </div>
-      </nav>
 
-      <div className="flex-1 flex items-center justify-center px-6 py-10">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-extrabold tracking-tight" data-testid="text-auth-heading">
-              Create your account
-            </h2>
-            <p className="text-sm text-muted-foreground mt-2">
-              Start managing your rentals smarter
-            </p>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <UserPlus className="h-6 w-6 text-primary" />
           </div>
-
-          <Formik
-            initialValues={{
-              firstName: "",
-              lastName: "",
-              email: "",
-              country: "",
-              phone: "",
-              city: "",
-              password: "",
-              confirmPassword: "",
-              agreeTerms: false,
-            }}
-            validationSchema={SignupSchema}
-            onSubmit={(values: any, { setSubmitting }: FormikHelpers<any>) => {
-              const email = String(values.email || "").trim().toLowerCase();
-              const country = COUNTRIES.find((c) => c.code === values.country);
-              const digits = String(values.phone || "").replace(/\D/g, "");
-              const fullPhone = country ? `+${country.dialCode}${digits}` : digits;
-
-              registerMutation.mutate(
-                {
-                  firstName: values.firstName.trim(),
-                  lastName: values.lastName.trim(),
-                  email,
-                  password: values.password,
-                  country: values.country,
-                  phone: fullPhone,
-                  city: values.city?.trim() || undefined,
-                },
-                { onSettled: () => setSubmitting(false) },
-              );
-            }}
+          <h1
+            className="text-2xl font-extrabold text-primary"
+            data-testid="text-logo"
           >
-            {({
-              values,
-              setFieldValue,
-              isSubmitting,
-              errors,
-              touched,
-            }: {
-              values: any;
-              setFieldValue: any;
-              isSubmitting: boolean;
-              errors: any;
-              touched: any;
-            }) => {
-              const country = COUNTRIES.find((c) => c.code === values.country);
-              const strength = getPasswordStrength(values.password || "");
-              const isPhoneEnabled = Boolean(values.country);
+            Hoster
+          </h1>
+          <p
+            className="text-sm text-muted-foreground mt-1"
+            data-testid="text-auth-heading"
+          >
+            Create Account
+          </p>
+        </div>
 
-              return (
-                <Form className="space-y-4" data-testid="form-signup">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="reg-first" className="text-xs font-medium text-muted-foreground">
-                        First name *
-                      </Label>
-                      <Field
-                        as={Input}
-                        id="reg-first"
-                        name="firstName"
-                        placeholder="John"
-                        className={`bg-card border-border rounded-md ${errors.firstName && touched.firstName ? "border-destructive" : ""}`}
-                        data-testid="input-reg-first-name"
-                      />
-                      <ErrorMessage name="firstName" component="div" className="text-xs text-destructive" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="reg-last" className="text-xs font-medium text-muted-foreground">
-                        Last name *
-                      </Label>
-                      <Field
-                        as={Input}
-                        id="reg-last"
-                        name="lastName"
-                        placeholder="Smith"
-                        className={`bg-card border-border rounded-md ${errors.lastName && touched.lastName ? "border-destructive" : ""}`}
-                        data-testid="input-reg-last-name"
-                      />
-                      <ErrorMessage name="lastName" component="div" className="text-xs text-destructive" />
-                    </div>
-                  </div>
+        <Card className="max-h-[calc(100dvh-11rem)] sm:max-h-none overflow-hidden sm:overflow-visible">
+          <CardContent className="p-6 max-h-[calc(100dvh-11rem)] sm:max-h-none overflow-y-auto sm:overflow-visible">
+            <Formik
+              initialValues={{
+                firstName: "",
+                lastName: "",
+                email: "",
+                country: "",
+                phone: "",
+                city: "",
+                password: "",
+                confirmPassword: "",
+                agreeTerms: false,
+              }}
+              validationSchema={SignupSchema}
+              onSubmit={(
+                values: any,
+                { setSubmitting }: FormikHelpers<any>,
+              ) => {
+                const email = String(values.email || "")
+                  .trim()
+                  .toLowerCase();
+                const country = COUNTRIES.find(
+                  (c) => c.code === values.country,
+                );
+                const digits = String(values.phone || "").replace(/\D/g, "");
+                const fullPhone = country
+                  ? `+${country.dialCode}${digits}`
+                  : digits;
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-email" className="text-xs font-medium text-muted-foreground">
-                      Email address *
-                    </Label>
-                    <Field
-                      as={Input}
-                      id="reg-email"
-                      name="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      className={`bg-card border-border rounded-md ${errors.email && touched.email ? "border-destructive" : ""}`}
-                      data-testid="input-reg-email"
-                    />
-                    <ErrorMessage name="email" component="div" className="text-xs text-destructive" />
-                  </div>
+                registerMutation.mutate(
+                  {
+                    firstName: values.firstName.trim(),
+                    lastName: values.lastName.trim(),
+                    email,
+                    password: values.password,
+                    country: values.country,
+                    phone: fullPhone,
+                    city: values.city?.trim() || undefined,
+                  },
+                  { onSettled: () => setSubmitting(false) },
+                );
+              }}
+            >
+              {({
+                values,
+                setFieldValue,
+                isSubmitting,
+                errors,
+                touched,
+              }: {
+                values: any;
+                setFieldValue: any;
+                isSubmitting: boolean;
+                errors: any;
+                touched: any;
+              }) => {
+                const country = COUNTRIES.find(
+                  (c) => c.code === values.country,
+                );
+                const strength = getPasswordStrength(values.password || "");
+                const isPhoneEnabled = Boolean(values.country);
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground">
-                      Country *
-                    </Label>
-                    <Select
-                      value={values.country}
-                      onValueChange={(val) => {
-                        setCountrySearch("");
-                        setFieldValue("country", val);
-                        setFieldValue("phone", "");
-                      }}
-                    >
-                      <SelectTrigger className={`bg-card border-border rounded-md ${errors.country && touched.country ? "border-destructive" : ""}`} data-testid="select-reg-country">
-                        <SelectValue placeholder="Select your country" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <div className="p-2">
-                          <Input
-                            value={countrySearch}
-                            onChange={(e) => setCountrySearch(e.target.value)}
-                            placeholder="Search country…"
-                            className="h-8"
-                            data-testid="input-country-search"
-                          />
-                        </div>
-                        {countriesFiltered.map((c) => (
-                          <SelectItem key={c.code} value={c.code} data-testid={`option-country-${c.code.toLowerCase()}`}>
-                            {c.flag} {c.name} (+{c.dialCode})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <ErrorMessage name="country" component="div" className="text-xs text-destructive" />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-phone" className="text-xs font-medium text-muted-foreground">
-                      Phone number *
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-muted-foreground whitespace-nowrap flex-shrink-0 min-w-[4.2rem]" data-testid="text-phone-dial-code">
-                        {country ? `${country.flag} +${country.dialCode}` : "--"}
-                      </span>
-                      <Field
-                        as={Input}
-                        id="reg-phone"
-                        name="phone"
-                        type="tel"
-                        inputMode="numeric"
-                        disabled={!isPhoneEnabled}
-                        placeholder={isPhoneEnabled ? "501234567" : "Select country first"}
-                        className={`bg-card border-border rounded-md ${errors.phone && touched.phone ? "border-destructive" : ""}`}
-                        onChange={(e: any) => {
-                          const onlyDigits = String(e.target.value || "").replace(/\D/g, "");
-                          setFieldValue("phone", onlyDigits);
-                        }}
-                        data-testid="input-reg-phone"
-                      />
-                    </div>
-                    <ErrorMessage name="phone" component="div" className="text-xs text-destructive" />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-city" className="text-xs font-medium text-muted-foreground">
-                      City <span className="text-muted-foreground">(Optional)</span>
-                    </Label>
-                    <Field
-                      as={Input}
-                      id="reg-city"
-                      name="city"
-                      placeholder="Riyadh"
-                      className="bg-card border-border rounded-md"
-                      data-testid="input-reg-city"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-password" className="text-xs font-medium text-muted-foreground">
-                      Password *
-                    </Label>
-                    <div className="relative">
-                      <Field
-                        as={Input}
-                        id="reg-password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Min. 6 characters"
-                        className={`pr-10 bg-card border-border rounded-md ${errors.password && touched.password ? "border-destructive" : ""}`}
-                        data-testid="input-reg-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                        data-testid="button-toggle-reg-password"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-1 flex-1 rounded bg-muted overflow-hidden">
-                        <div
-                          className={`h-full ${strength.barColor}`}
-                          style={{ width: `${strength.score}%` }}
+                return (
+                  <Form className="space-y-3" data-testid="form-signup">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-first">First name *</Label>
+                        <Field
+                          as={Input}
+                          id="reg-first"
+                          name="firstName"
+                          placeholder="John"
+                          className={`bg-card ${errors.firstName && touched.firstName ? "border-destructive" : ""}`}
+                          data-testid="input-reg-first-name"
+                        />
+                        <ErrorMessage
+                          name="firstName"
+                          component="div"
+                          className="text-xs text-destructive"
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground min-w-[3.5rem] text-right">
-                        {values.password ? strength.label : ""}
-                      </span>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-last">Last name *</Label>
+                        <Field
+                          as={Input}
+                          id="reg-last"
+                          name="lastName"
+                          placeholder="Smith"
+                          className={`bg-card ${errors.lastName && touched.lastName ? "border-destructive" : ""}`}
+                          data-testid="input-reg-last-name"
+                        />
+                        <ErrorMessage
+                          name="lastName"
+                          component="div"
+                          className="text-xs text-destructive"
+                        />
+                      </div>
                     </div>
-                    <ErrorMessage name="password" component="div" className="text-xs text-destructive" />
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-confirm" className="text-xs font-medium text-muted-foreground">
-                      Confirm password *
-                    </Label>
-                    <div className="relative">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-email">Email *</Label>
                       <Field
                         as={Input}
-                        id="reg-confirm"
-                        name="confirmPassword"
-                        type={showConfirm ? "text" : "password"}
-                        placeholder="Re-enter password"
-                        className={`pr-10 bg-card border-border rounded-md ${errors.confirmPassword && touched.confirmPassword ? "border-destructive" : ""}`}
-                        data-testid="input-reg-confirm-password"
+                        id="reg-email"
+                        name="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        className={`bg-card ${errors.email && touched.email ? "border-destructive" : ""}`}
+                        data-testid="input-reg-email"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirm(!showConfirm)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                        data-testid="button-toggle-confirm-password"
-                      >
-                        {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+                      <ErrorMessage
+                        name="email"
+                        component="div"
+                        className="text-xs text-destructive"
+                      />
                     </div>
-                    <ErrorMessage name="confirmPassword" component="div" className="text-xs text-destructive" />
-                  </div>
 
-                  <div className="flex items-start gap-2 pt-1">
-                    <Checkbox
-                      checked={values.agreeTerms}
-                      onCheckedChange={(v) => setFieldValue("agreeTerms", Boolean(v))}
-                      id="agree-terms"
-                      data-testid="checkbox-agree-terms"
-                    />
-                    <Label htmlFor="agree-terms" className="text-xs text-muted-foreground cursor-pointer leading-relaxed">
-                      I agree to the{" "}
-                      <Link href="/terms" target="_blank" rel="noopener noreferrer" className="underline">
-                        Terms
-                      </Link>{" "}
-                      and{" "}
-                      <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">
-                        Privacy Policy
-                      </Link>
-                      .
-                    </Label>
-                  </div>
-                  <ErrorMessage name="agreeTerms" component="div" className="text-xs text-destructive" />
+                    <div className="grid grid-cols-5 gap-3">
+                      <div className="col-span-3 space-y-1.5">
+                        <Label>Country *</Label>
+                        <Select
+                          value={values.country}
+                          onValueChange={(val) => {
+                            setCountrySearch("");
+                            setFieldValue("country", val);
+                            setFieldValue("phone", "");
+                          }}
+                        >
+                          <SelectTrigger
+                            className={`bg-card ${errors.country && touched.country ? "border-destructive" : ""}`}
+                            data-testid="select-reg-country"
+                          >
+                            <SelectValue placeholder="Country" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="p-2">
+                              <Input
+                                value={countrySearch}
+                                onChange={(e) =>
+                                  setCountrySearch(e.target.value)
+                                }
+                                placeholder="Search country…"
+                                className="h-8"
+                                data-testid="input-country-search"
+                              />
+                            </div>
+                            {countriesFiltered.map((c) => (
+                              <SelectItem
+                                key={c.code}
+                                value={c.code}
+                                data-testid={`option-country-${c.code.toLowerCase()}`}
+                              >
+                                {c.flag} {c.name} (+{c.dialCode})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <ErrorMessage
+                          name="country"
+                          component="div"
+                          className="text-xs text-destructive"
+                        />
+                      </div>
 
-                  <Button
-                    className="w-full"
-                    type="submit"
-                    disabled={isSubmitting || registerMutation.isPending}
-                    style={{ backgroundColor: "#FF385C", borderColor: "#FF385C" }}
-                    data-testid="button-submit-signup"
-                  >
-                    {isSubmitting || registerMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    Create account
-                  </Button>
+                      <div className="col-span-2 space-y-1.5">
+                        <Label htmlFor="reg-city">City</Label>
+                        <Field
+                          as={Input}
+                          id="reg-city"
+                          name="city"
+                          placeholder="City"
+                          className="bg-card"
+                          data-testid="input-reg-city"
+                        />
+                      </div>
+                    </div>
 
-                  <p className="text-xs text-muted-foreground text-center">
-                    Already have an account?{" "}
-                    <Link href="/login" className="underline">
-                      Log in
-                    </Link>
-                  </p>
-                </Form>
-              );
-            }}
-          </Formik>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-phone">Phone number *</Label>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-sm font-medium text-muted-foreground whitespace-nowrap flex-shrink-0 min-w-[4.2rem]"
+                          data-testid="text-phone-dial-code"
+                        >
+                          {country
+                            ? `${country.flag} +${country.dialCode}`
+                            : "--"}
+                        </span>
+                        <Field
+                          as={Input}
+                          id="reg-phone"
+                          name="phone"
+                          type="tel"
+                          inputMode="numeric"
+                          disabled={!isPhoneEnabled}
+                          placeholder={
+                            isPhoneEnabled
+                              ? "501234567"
+                              : "Select country first"
+                          }
+                          className={`bg-card ${errors.phone && touched.phone ? "border-destructive" : ""}`}
+                          onChange={(e: any) => {
+                            const onlyDigits = String(
+                              e.target.value || "",
+                            ).replace(/\D/g, "");
+                            setFieldValue("phone", onlyDigits);
+                          }}
+                          data-testid="input-reg-phone"
+                        />
+                      </div>
+                      <ErrorMessage
+                        name="phone"
+                        component="div"
+                        className="text-xs text-destructive"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-password">Password *</Label>
+                      <div className="relative">
+                        <Field
+                          as={Input}
+                          id="reg-password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Min. 6 characters"
+                          className={`bg-card pr-10 ${errors.password && touched.password ? "border-destructive" : ""}`}
+                          data-testid="input-reg-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                          data-testid="button-toggle-password"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1 flex-1 rounded bg-muted overflow-hidden">
+                          <div
+                            className={`h-full ${strength.barColor}`}
+                            style={{ width: `${strength.score}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground min-w-[3.5rem] text-right">
+                          {values.password ? strength.label : ""}
+                        </span>
+                      </div>
+                      <ErrorMessage
+                        name="password"
+                        component="div"
+                        className="text-xs text-destructive"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-confirm">Confirm password *</Label>
+                      <div className="relative">
+                        <Field
+                          as={Input}
+                          id="reg-confirm"
+                          name="confirmPassword"
+                          type={showConfirm ? "text" : "password"}
+                          placeholder="Re-enter password"
+                          className={`bg-card pr-10 ${errors.confirmPassword && touched.confirmPassword ? "border-destructive" : ""}`}
+                          data-testid="input-reg-confirm-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirm(!showConfirm)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                          data-testid="button-toggle-confirm-password"
+                        >
+                          {showConfirm ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <ErrorMessage
+                        name="confirmPassword"
+                        component="div"
+                        className="text-xs text-destructive"
+                      />
+                    </div>
+
+                    <div className="pt-1">
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          id="agree-terms"
+                          checked={values.agreeTerms}
+                          onCheckedChange={(checked) =>
+                            setFieldValue("agreeTerms", checked === true)
+                          }
+                          className="mt-0.5"
+                          data-testid="checkbox-agree-terms"
+                        />
+                        <Label
+                          htmlFor="agree-terms"
+                          className="text-xs text-muted-foreground cursor-pointer leading-relaxed"
+                        >
+                          I agree to the{" "}
+                          <Link
+                            href="/terms"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary font-medium hover:underline"
+                          >
+                            Terms & Conditions
+                          </Link>{" "}
+                          and{" "}
+                          <Link
+                            href="/privacy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary font-medium hover:underline"
+                          >
+                            Privacy Policy
+                          </Link>
+                        </Label>
+                      </div>
+                      <ErrorMessage
+                        name="agreeTerms"
+                        component="div"
+                        className="text-xs text-destructive mt-1"
+                      />
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      type="submit"
+                      disabled={isSubmitting || registerMutation.isPending}
+                      data-testid="button-signup"
+                    >
+                      {isSubmitting || registerMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Create account
+                    </Button>
+                  </Form>
+                );
+              }}
+            </Formik>
+          </CardContent>
+        </Card>
+
+        <div className="text-center mt-4">
+          <p className="text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="text-primary font-medium underline"
+              data-testid="link-to-login"
+            >
+              Log in
+            </Link>
+          </p>
         </div>
+        <div className="mt-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <Link
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            Terms
+          </Link>
+          <span aria-hidden="true">•</span>
+          <Link
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            Privacy
+          </Link>
+        </div>
+        {/* <p className="text-center text-xs text-muted-foreground mt-4">
+          Restricted access. Authorized personnel only. 
+        </p> */}
       </div>
+
     </div>
   );
 }

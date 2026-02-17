@@ -28,6 +28,7 @@ export interface ListingConfig {
   listingId: string;
   listingName: string;
   defaultCheckinTime: string;
+  eventsLocation: string;
   hasDoorCode: boolean;
   hasWifiSsid: boolean;
   hasWifiPassword: boolean;
@@ -39,6 +40,7 @@ export interface ListingConfigDetail {
   listingId: string;
   listingName: string;
   defaultCheckinTime: string;
+  eventsLocation: string;
   doorCode: string;
   wifiSsid: string;
   wifiPassword: string;

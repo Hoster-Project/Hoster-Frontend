@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,14 +25,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 
 interface MappingStatusItem {
   channelKey: string;
@@ -60,8 +51,6 @@ export default function SettingsListingsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const router = useRouter();
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [unitName, setUnitName] = useState("");
 
   const { data, isLoading } = useQuery<SettingsData>({
     queryKey: ["/api/settings"],
@@ -86,32 +75,6 @@ export default function SettingsListingsPage() {
       toast({ title: "Import failed", variant: "destructive" });
     },
   });
-
-  const addUnitMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/listings", { name });
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/calendar"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-      toast({ title: "Unit added" });
-      setAddDialogOpen(false);
-      setUnitName("");
-      if (data?.id) {
-        router.push(`/listing/${data.id}`);
-      }
-    },
-    onError: () => {
-      toast({ title: "Failed to add unit", variant: "destructive" });
-    },
-  });
-
-  const handleAddUnit = () => {
-    if (!unitName.trim()) return;
-    addUnitMutation.mutate(unitName.trim());
-  };
 
   if (isLoading) {
     return (
@@ -159,7 +122,7 @@ export default function SettingsListingsPage() {
               Import from apps
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => setAddDialogOpen(true)}
+              onClick={() => router.push("/listing/new")}
               data-testid="menu-add-unit"
             >
               <Home className="h-4 w-4 mr-2" />
@@ -232,53 +195,6 @@ export default function SettingsListingsPage() {
         )}
       </div>
 
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-w-sm rounded-lg" data-testid="dialog-add-unit">
-          <DialogHeader>
-            <DialogTitle className="text-base">Add Unit</DialogTitle>
-            <DialogDescription>
-              Enter the name of your rental unit or property.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              placeholder="e.g. Beach House, Studio Apt 3B"
-              value={unitName}
-              onChange={(e) => setUnitName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAddUnit();
-              }}
-              autoFocus
-              data-testid="input-unit-name"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                className="flex-1"
-                onClick={handleAddUnit}
-                disabled={!unitName.trim() || addUnitMutation.isPending}
-                data-testid="button-confirm-add-unit"
-              >
-                {addUnitMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                ) : (
-                  <Plus className="h-4 w-4 mr-1.5" />
-                )}
-                Add Unit
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setAddDialogOpen(false);
-                  setUnitName("");
-                }}
-                data-testid="button-cancel-add-unit"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

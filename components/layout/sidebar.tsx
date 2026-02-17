@@ -96,6 +96,15 @@ export function AppSidebar() {
           <LogOut className="mr-2 h-4 w-4" />
           Log out
         </Button>
+        <div className="mt-3 flex items-center justify-center gap-3 text-[11px] text-muted-foreground">
+          <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">
+            Terms
+          </Link>
+          <span aria-hidden="true">•</span>
+          <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">
+            Privacy
+          </Link>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

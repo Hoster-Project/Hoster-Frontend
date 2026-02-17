@@ -328,6 +328,8 @@ export default function LandingPage() {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <button onClick={() => scrollTo(featuresRef)} className="transition-colors" data-testid="link-footer-features">Features</button>
               <button onClick={() => scrollTo(pricingRef)} className="transition-colors" data-testid="link-footer-pricing">Pricing</button>
+              <Link href="/terms" className="transition-colors hover:underline" data-testid="link-footer-terms">Terms</Link>
+              <Link href="/privacy" className="transition-colors hover:underline" data-testid="link-footer-privacy">Privacy</Link>
               <Link href="/login" className="transition-colors" data-testid="link-footer-login">Log in</Link>
             </div>
           </div>

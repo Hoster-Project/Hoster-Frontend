@@ -366,6 +366,7 @@ export default function SettingsAutomationPage() {
       defaultCheckinTime: applyAllMode
         ? ""
         : currentListingConfig?.defaultCheckinTime || "",
+      eventsLocation: applyAllMode ? "" : currentListingConfig?.eventsLocation || "",
       doorCode: "",
       wifiSsid: "",
       wifiPassword: "",
@@ -840,12 +841,12 @@ export default function SettingsAutomationPage() {
         <AutomationCard
           icon={Heart}
           title="Checkout Thank-you"
-          description="Send a thank-you message the morning after check-out"
+          description="Send a thank-you message 30 minutes before check-out"
           enabled={ls?.autoCheckoutThanksEnabled ?? true}
           onToggle={toggleCheckoutThanks}
           statusText={
             ls?.autoCheckoutThanksEnabled !== false
-              ? "Sends morning after check-out"
+              ? "Sends 30 minutes before check-out"
               : "Disabled"
           }
           testIdPrefix="auto-checkout"
@@ -1225,6 +1226,8 @@ export default function SettingsAutomationPage() {
                 const data: any = {};
                 if (values.defaultCheckinTime)
                   data.defaultCheckinTime = values.defaultCheckinTime;
+                if (values.eventsLocation)
+                  data.eventsLocation = values.eventsLocation;
                 if (values.doorCode) data.doorCode = values.doorCode;
                 if (values.wifiSsid) data.wifiSsid = values.wifiSsid;
                 if (values.wifiPassword)
@@ -1237,6 +1240,8 @@ export default function SettingsAutomationPage() {
                   currentListingConfig?.defaultCheckinTime ||
                   listingDetail?.defaultCheckinTime;
                 if (timeVal) data.defaultCheckinTime = timeVal;
+                if (values.eventsLocation)
+                  data.eventsLocation = values.eventsLocation;
                 if (values.doorCode) data.doorCode = values.doorCode;
                 if (values.wifiSsid) data.wifiSsid = values.wifiSsid;
                 if (values.wifiPassword)
@@ -1261,6 +1266,24 @@ export default function SettingsAutomationPage() {
                     onChange={handleChange}
                     className="mt-1"
                     data-testid="input-checkin-time"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    Events location
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Used for “Upcoming events” on the dashboard (example:
+                    Austin, Texas, United States)
+                  </p>
+                  <Input
+                    type="text"
+                    name="eventsLocation"
+                    placeholder="City, Region, Country"
+                    value={(values as any).eventsLocation || ""}
+                    onChange={handleChange}
+                    className="mt-1"
+                    data-testid="input-events-location"
                   />
                 </div>
                 <div>

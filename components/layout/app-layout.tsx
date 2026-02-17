@@ -4,11 +4,12 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { BottomTabs } from "@/components/bottom-tabs";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export default function AppLayout({ 
+export default function AppLayout({
   children, 
   fullWidth = false, 
   noPadding = false,
@@ -21,7 +22,7 @@ export default function AppLayout({
   hideMobileHeader?: boolean;
   hideBottomTabs?: boolean;
 }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout, isLoggingOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -47,8 +48,20 @@ export default function AppLayout({
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Mobile Header / Desktop Trigger */}
           {!hideMobileHeader && (
-            <header className="flex h-14 items-center gap-2 border-b bg-background px-4 lg:h-[60px] md:hidden flex-shrink-0">
-               <span className="font-bold text-lg text-primary">Hoster</span>
+            <header className="flex h-14 items-center gap-2 border-b bg-background px-4 lg:h-[60px] flex-shrink-0">
+              <SidebarTrigger className="hidden md:flex" data-testid="button-sidebar-toggle-main" />
+              <span className="font-bold text-lg text-primary">Hoster</span>
+              <Button
+                size="icon"
+                aria-label="Logout"
+                variant="ghost"
+                className="ml-auto"
+                onClick={() => logout()}
+                disabled={isLoggingOut}
+                data-testid="button-logout-top-main"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </header>
           )}
           

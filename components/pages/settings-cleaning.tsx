@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -151,8 +151,27 @@ export default function SettingsCleaningPage() {
     queryKey: ["/api/cleaning/my-subscriptions"],
   });
 
-  const { data: myListings } = useQuery<Listing[]>({
-    queryKey: ["/api/listings"],
+  const { data: myListings, isLoading: loadingListings } = useQuery<Listing[]>({
+    queryKey: ["/api/cleaning/listings"],
+    queryFn: async () => {
+      const normalize = (items: any[]): Listing[] =>
+        items
+          .filter((item) => item && typeof item.id === "string" && typeof item.name === "string")
+          .map((item) => ({ id: item.id, name: item.name }));
+
+      // Primary source
+      const listingsRes = await fetch("/api/listings", { credentials: "include", cache: "no-store" });
+      if (listingsRes.ok) {
+        const listings = await listingsRes.json();
+        if (Array.isArray(listings)) return normalize(listings);
+      }
+
+      // Fallback for older backend instances that only expose listings via /api/settings
+      const settingsRes = await fetch("/api/settings", { credentials: "include", cache: "no-store" });
+      if (!settingsRes.ok) throw new Error("Failed to load listings");
+      const settings = await settingsRes.json();
+      return Array.isArray(settings?.listings) ? normalize(settings.listings) : [];
+    },
   });
 
   const { data: visitReports, isLoading: loadingReports } = useQuery<VisitReport[]>({
@@ -194,6 +213,23 @@ export default function SettingsCleaningPage() {
     },
   });
 
+  const unsubscribeMutation = useMutation({
+    mutationFn: async (subscriptionId: string) => {
+      const res = await apiRequest("DELETE", `/api/cleaning/subscriptions/${subscriptionId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/cleaning/my-subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["/api/maintenance/subscriptions"] });
+      setSelectedSub(null);
+      setView("list");
+      toast({ title: "Unsubscribed", description: "Your subscription has been cancelled." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to unsubscribe", variant: "destructive" });
+    },
+  });
+
   const reviewMutation = useMutation({
     mutationFn: async (data: { visitReportId: string; subscriptionId: string; providerId: string; rating: number; comment?: string }) => {
       const res = await apiRequest("POST", "/api/cleaning/reviews", data);
@@ -222,8 +258,33 @@ export default function SettingsCleaningPage() {
     },
   });
 
+  const dedupedSubscriptions = useMemo(() => {
+    const byProvider = new Map<string, Subscription>();
+    for (const sub of subscriptions || []) {
+      const existing = byProvider.get(sub.providerId);
+      if (!existing) {
+        byProvider.set(sub.providerId, sub);
+        continue;
+      }
+      const rank = (status: Subscription["status"]) =>
+        status === "ACCEPTED" ? 3 : status === "PENDING" ? 2 : 1;
+      const existingRank = rank(existing.status);
+      const currentRank = rank(sub.status);
+      if (currentRank > existingRank) {
+        byProvider.set(sub.providerId, sub);
+        continue;
+      }
+      if (currentRank === existingRank) {
+        const existingAt = new Date(existing.createdAt || 0).getTime();
+        const currentAt = new Date(sub.createdAt || 0).getTime();
+        if (currentAt > existingAt) byProvider.set(sub.providerId, sub);
+      }
+    }
+    return Array.from(byProvider.values());
+  }, [subscriptions]);
+
   const getSubForProvider = (providerId: string) =>
-    subscriptions?.find((s) => s.providerId === providerId);
+    dedupedSubscriptions.find((s) => s.providerId === providerId);
 
   const goBack = () => {
     if (view === "chat" || view === "visit-photos" || view === "review-form") {
@@ -245,7 +306,7 @@ export default function SettingsCleaningPage() {
     if (view === "visit-photos") return "Visit Photos";
     if (view === "review-form") return "Leave Review";
     if (view === "chat") return "Chat";
-    return "Cleaning Services";
+    return "Service Providers";
   };
 
   return (
@@ -260,11 +321,11 @@ export default function SettingsCleaningPage() {
       <div className="flex-1 overflow-y-auto">
         {view === "list" && (
           <div className="px-4 py-4 space-y-6">
-            {subscriptions && subscriptions.length > 0 && (
+            {dedupedSubscriptions.length > 0 && (
               <div>
                 <p className="text-sm font-semibold mb-3" data-testid="text-my-subscriptions">My Subscriptions</p>
                 <div className="space-y-3">
-                  {subscriptions.map((sub) => (
+                  {dedupedSubscriptions.map((sub) => (
                     <div
                       key={sub.id}
                       className={`p-3.5 rounded-md border cursor-pointer ${
@@ -492,7 +553,12 @@ export default function SettingsCleaningPage() {
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm font-medium mb-2">Select properties to include</p>
-                    {myListings && myListings.length > 0 ? (
+                    {loadingListings ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-9 w-full rounded-md" />
+                        <Skeleton className="h-9 w-full rounded-md" />
+                      </div>
+                    ) : myListings && myListings.length > 0 ? (
                       <div className="space-y-2">
                         {myListings.map((listing) => (
                           <label key={listing.id} className="flex items-center gap-2 p-2 rounded-md border cursor-pointer" data-testid={`listing-select-${listing.id}`}>
@@ -579,16 +645,30 @@ export default function SettingsCleaningPage() {
               </div>
             </Card>
 
-            {selectedSub.status === "ACCEPTED" && (
+            {(selectedSub.status === "ACCEPTED" || selectedSub.status === "PENDING") && (
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   className="flex-1"
                   onClick={() => setView("chat")}
+                  disabled={selectedSub.status !== "ACCEPTED"}
                   data-testid="button-chat-provider"
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Chat
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  disabled={unsubscribeMutation.isPending}
+                  onClick={() => {
+                    if (!selectedSub) return;
+                    if (!window.confirm("Cancel this subscription?")) return;
+                    unsubscribeMutation.mutate(selectedSub.id);
+                  }}
+                  data-testid="button-unsubscribe-provider"
+                >
+                  Unsubscribe
                 </Button>
               </div>
             )}
@@ -671,7 +751,7 @@ export default function SettingsCleaningPage() {
               {selectedReport.photos?.map((photo, idx) => (
                 <div
                   key={idx}
-                  className="aspect-square rounded-md overflow-hidden border cursor-pointer"
+                  className="relative aspect-square rounded-md overflow-hidden border cursor-pointer"
                   onClick={() => { setSelectedPhotoIdx(idx); setPhotoViewerOpen(true); }}
                   data-testid={`visit-photo-${idx}`}
                 >
@@ -685,6 +765,10 @@ export default function SettingsCleaningPage() {
                 </div>
               ))}
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              For maintenance job completion approvals, use the <strong>Maintenance Requests</strong> page.
+            </p>
 
             <Dialog open={photoViewerOpen} onOpenChange={setPhotoViewerOpen}>
               <DialogContent className="max-w-lg p-0">
