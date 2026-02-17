@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { formatMoney } from "@/lib/money";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 import {
   ArrowLeft,
   Building2,
@@ -85,18 +86,14 @@ interface InvitationStatus {
 
 function getPlanInfo(plan: string) {
   switch (plan) {
-    case "growth": return { label: "Growth", price: 19, maxUnits: 5, variant: "default" as const };
-    case "expanding": return { label: "Expanding", price: 39, maxUnits: 15, variant: "destructive" as const };
-    default: return { label: "Light", price: 0, maxUnits: 1, variant: "secondary" as const };
+    case "growth": return { label: "Growth", price: 19, maxUnits: 5, badgeClass: getCategoryBadgeClass("growth", "plan") };
+    case "expanding": return { label: "Expanding", price: 39, maxUnits: 15, badgeClass: getCategoryBadgeClass("expanding", "plan") };
+    default: return { label: "Light", price: 0, maxUnits: 1, badgeClass: getCategoryBadgeClass("light", "plan") };
   }
 }
 
-function getStatusVariant(status: string) {
-  switch (status) {
-    case "CONFIRMED": case "CHECKED_IN": return "default" as const;
-    case "CANCELED": case "REJECTED": return "destructive" as const;
-    default: return "secondary" as const;
-  }
+function getRoleBadgeClass(role: string) {
+  return getCategoryBadgeClass(role, "role");
 }
 
 export default function AdminUserDetail({ userId }: { userId: string }) {
@@ -143,7 +140,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="portal-page space-y-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-60 w-full" />
@@ -153,7 +150,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
 
   if (!data) {
     return (
-      <div className="p-6">
+      <div className="portal-page">
         <p className="text-muted-foreground">User not found</p>
       </div>
     );
@@ -171,7 +168,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
     : `${formatMoney(planInfo.price, adminUser?.currency)}/mo`;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="portal-page space-y-6">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -182,7 +179,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-xl font-semibold" data-testid="text-user-detail-title">User Details</h2>
+        <h2 className="portal-title" data-testid="text-user-detail-title">User Details</h2>
       </div>
 
       <Card data-testid="card-user-profile">
@@ -196,9 +193,9 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-lg font-semibold" data-testid="text-user-display-name">{displayName}</h3>
-                  <Badge variant="secondary" data-testid="badge-user-role">{user.role}</Badge>
-                  <Badge variant={planInfo.variant} data-testid="badge-user-plan">{planInfo.label}</Badge>
-                  {user.blocked && <Badge variant="destructive">Blocked</Badge>}
+                  <Badge className={getRoleBadgeClass(user.role)} data-testid="badge-user-role">{user.role}</Badge>
+                  <Badge className={planInfo.badgeClass} data-testid="badge-user-plan">{planInfo.label}</Badge>
+                  {user.blocked && <Badge className={getCategoryBadgeClass("blocked", "status")}>Blocked</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground mt-0.5">Joined {joinedDate}</p>
               </div>
@@ -241,8 +238,10 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary">{inviteStatus?.accountStatus || user.accountStatus || "PENDING"}</Badge>
-            {user.emailVerified && <Badge variant="default">Email Verified</Badge>}
+            <Badge className={getCategoryBadgeClass(inviteStatus?.accountStatus || user.accountStatus || "PENDING", "status")}>
+              {inviteStatus?.accountStatus || user.accountStatus || "PENDING"}
+            </Badge>
+            {user.emailVerified && <Badge className={getCategoryBadgeClass("email-verified", "status")}>Email Verified</Badge>}
           </div>
           <div className="text-sm text-muted-foreground">
             Invitation Sent: {inviteStatus?.invitationSentAt ? format(new Date(inviteStatus.invitationSentAt), "MMM d, yyyy HH:mm") : "N/A"}
@@ -322,7 +321,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
                     <p className="text-sm font-medium">{listing.name}</p>
                     <p className="text-xs text-muted-foreground">{listing.reservationCount} bookings</p>
                   </div>
-                  <Badge variant={listing.status === "ACTIVE" ? "default" : "secondary"}>
+                  <Badge className={getCategoryBadgeClass(listing.status, "status")}>
                     {listing.status}
                   </Badge>
                 </div>
@@ -354,7 +353,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
                       </p>
                     )}
                   </div>
-                  <Badge variant={conn.status === "CONNECTED" ? "default" : conn.status === "ERROR" ? "destructive" : "secondary"}>
+                  <Badge className={getCategoryBadgeClass(conn.status, "status")}>
                     {conn.status}
                   </Badge>
                 </div>
@@ -381,7 +380,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium">{res.guestName}</p>
-                      <Badge variant={getStatusVariant(res.status)} className="text-xs">{res.status}</Badge>
+                      <Badge className={`${getCategoryBadgeClass(res.status, "status")} text-xs`}>{res.status}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {res.listingName} via {res.channelName}

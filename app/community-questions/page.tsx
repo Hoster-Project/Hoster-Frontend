@@ -1,4 +1,4 @@
-import CommunityQuestionsPage from '@/components/pages/community-questions';
+import CommunityQuestionsPage from '@/components/pages/host/community-questions';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 import {
   Building2,
   Plus,
@@ -34,6 +35,7 @@ import {
   RefreshCw,
   Layers,
   Archive,
+  Trash2,
 } from "lucide-react";
 import AdminProviders from "./admin-providers";
 
@@ -114,6 +116,10 @@ export default function AdminMarketplacePage() {
     },
   });
 
+  const { data: authData } = useQuery<{ isAdmin: boolean; isModerator: boolean }>({
+    queryKey: ["/api/admin/auth-check"],
+  });
+
   const availableAdmins = useMemo(() => adminCandidates.filter((u) => !u.companyId), [adminCandidates]);
 
   const createCompanyMutation = useMutation({
@@ -177,6 +183,21 @@ export default function AdminMarketplacePage() {
     },
   });
 
+  const deleteCompanyMutation = useMutation({
+    mutationFn: async (companyId: string) => {
+      const res = await apiRequest("DELETE", `/api/admin/marketplace/companies/${companyId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/marketplace/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/marketplace/admin-candidates"] });
+      toast({ title: "Company deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete company failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const companyAdminsByCompany = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of companies) map.set(c.id, c.admin.id);
@@ -188,7 +209,7 @@ export default function AdminMarketplacePage() {
   const maintenanceCompanies = companies.filter((c) => c.serviceType === "MAINTENANCE").length;
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
+    <div className="portal-page space-y-6 max-w-6xl">
       <Tabs value={tab} onValueChange={(v) => setTab(v as "companies" | "legacy")}>
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="companies">
@@ -204,7 +225,7 @@ export default function AdminMarketplacePage() {
         <TabsContent value="companies" className="space-y-6 mt-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="text-2xl font-bold text-primary">Marketplace Companies</h1>
+              <h1 className="text-2xl font-bold text-black">Marketplace Companies</h1>
               <p className="text-sm text-muted-foreground mt-1">Create provider companies, assign company admins, and monitor structure.</p>
             </div>
             <div className="flex items-center gap-2">
@@ -260,8 +281,8 @@ export default function AdminMarketplacePage() {
                       <CardTitle className="text-base flex items-center gap-2">
                         <Building2 className="h-4 w-4" />
                         {company.name}
-                        <Badge variant="secondary">{company.companyType}</Badge>
-                        <Badge variant="outline" className="ml-1">
+                        <Badge className={getCategoryBadgeClass(company.companyType, "type")}>{company.companyType}</Badge>
+                        <Badge className={`ml-1 ${getCategoryBadgeClass(company.serviceType, "type")}`}>
                           {company.serviceType === "CLEANING" ? <Sparkles className="h-3 w-3 mr-1" /> : <Wrench className="h-3 w-3 mr-1" />}
                           {company.serviceType}
                         </Badge>
@@ -311,6 +332,22 @@ export default function AdminMarketplacePage() {
                               })}
                             </SelectContent>
                           </Select>
+                          {authData?.isAdmin && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={deleteCompanyMutation.isPending}
+                              onClick={() => {
+                                if (!window.confirm(`Delete company "${company.name}"? This cannot be undone.`)) return;
+                                deleteCompanyMutation.mutate(company.id);
+                              }}
+                              data-testid={`button-delete-company-${company.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1.5" />
+                              Delete Company
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>

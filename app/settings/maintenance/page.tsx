@@ -1,4 +1,4 @@
-import SettingsMaintenancePage from '@/components/pages/settings-maintenance';
+import SettingsMaintenancePage from '@/components/pages/host/settings-maintenance';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

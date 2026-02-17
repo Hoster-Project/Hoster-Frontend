@@ -1,5 +1,5 @@
 import { constructMetadata } from "@/lib/metadata";
-import ProviderLoader from "@/components/pages/provider-loader";
+import ProviderLoader from "@/components/pages/provider/provider-loader";
 
 export const metadata = constructMetadata({
   title: "Provider Portal | Hoster",

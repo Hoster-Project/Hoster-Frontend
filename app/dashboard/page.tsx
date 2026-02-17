@@ -1,6 +1,6 @@
 import AppLayout from "@/components/layout/app-layout";
 import { constructMetadata } from "@/lib/metadata";
-import HomeLoader from "@/components/pages/home-loader";
+import HomeLoader from "@/components/pages/host/home-loader";
 
 export const metadata = constructMetadata({
   title: "Dashboard | Hoster",

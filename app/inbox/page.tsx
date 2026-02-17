@@ -1,4 +1,4 @@
-import InboxPage from '@/components/pages/inbox';
+import InboxPage from '@/components/pages/host/inbox';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

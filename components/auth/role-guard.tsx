@@ -43,7 +43,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-screen w-full items-center justify-center bg-muted/30">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -53,7 +53,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   const verified = Boolean(user?.emailVerified) || Boolean(user?.emailVerifiedAt);
   if (!user || !verified || !allowedRoles.includes(user.role)) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-screen w-full items-center justify-center bg-muted/30">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );

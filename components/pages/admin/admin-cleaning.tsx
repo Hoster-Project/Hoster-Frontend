@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 import {
   Dialog,
   DialogContent,
@@ -191,9 +192,9 @@ export default function AdminCleaningPage() {
   const totalReports = visitReports?.length || 0;
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
+    <div className="portal-page space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold text-primary" data-testid="text-admin-cleaning-title">Cleaning Marketplace</h1>
+        <h1 className="text-2xl font-bold text-black" data-testid="text-admin-cleaning-title">Cleaning Marketplace</h1>
         <p className="text-sm text-muted-foreground mt-1">Monitor cleaning service subscriptions, visit reports, and host reviews.</p>
       </div>
 
@@ -288,10 +289,7 @@ export default function AdminCleaningPage() {
                         <p className="text-xs text-muted-foreground">Properties: {sub.listingIds?.length || 0} listing(s)</p>
                       </div>
                     </div>
-                    <Badge variant={
-                      sub.status === "ACCEPTED" ? "default" :
-                      sub.status === "PENDING" ? "secondary" : "destructive"
-                    }>
+                    <Badge className={getCategoryBadgeClass(sub.status, "status")}>
                       {sub.status}
                     </Badge>
                   </div>
@@ -328,7 +326,7 @@ export default function AdminCleaningPage() {
                       <p className="text-xs text-muted-foreground">Visit: {report.visitDate}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Badge variant="secondary" className="cursor-pointer" onClick={() => {
+                      <Badge className={`cursor-pointer ${getCategoryBadgeClass("configured", "status")}`} onClick={() => {
                         setSelectedPhotos(report.photos || []);
                         setSelectedPhotoIdx(0);
                         setPhotoDialogOpen(true);
@@ -337,7 +335,7 @@ export default function AdminCleaningPage() {
                         {report.photos?.length || 0} photos
                       </Badge>
                       {report.review && (
-                        <Badge variant={report.review.flaggedForAdmin ? "destructive" : "default"}>
+                        <Badge className={getCategoryBadgeClass(report.review.flaggedForAdmin ? "blocked" : "active", "status")}>
                           {report.review.flaggedForAdmin && <AlertTriangle className="h-3 w-3 mr-1" />}
                           <Star className="h-3 w-3 mr-0.5 fill-current" /> {report.review.rating}
                         </Badge>
@@ -381,7 +379,7 @@ export default function AdminCleaningPage() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       {review.flaggedForAdmin && (
-                        <Badge variant="destructive">
+                        <Badge className={getCategoryBadgeClass("blocked", "status")}>
                           <Flag className="h-3 w-3 mr-1" />
                           Flagged
                         </Badge>

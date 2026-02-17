@@ -1,4 +1,4 @@
-import SettingsTemplatesPage from '@/components/pages/settings-templates';
+import SettingsTemplatesPage from '@/components/pages/host/settings-templates';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

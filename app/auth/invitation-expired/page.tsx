@@ -13,9 +13,9 @@ export default function InvitationExpiredPage() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6 py-10">
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center px-6 py-10">
       <Card className="w-full max-w-md p-6 space-y-4">
-        <h1 className="text-xl font-semibold text-primary">Invitation Link Expired</h1>
+        <h1 className="text-xl font-semibold text-black">Invitation Link Expired</h1>
         <p className="text-sm text-muted-foreground">
           This invitation link has expired. Links are valid for 1 hour for security reasons.
         </p>

@@ -203,7 +203,7 @@ export default function PrivacyPage() {
               Back
             </Link>
           </Button>
-          <span className="text-lg font-semibold text-primary">Hoster</span>
+          <span className="text-lg font-semibold text-black">Hoster</span>
         </div>
       </nav>
 
@@ -230,7 +230,7 @@ export default function PrivacyPage() {
                 <Mail className="h-4 w-4 text-muted-foreground inline-block mr-2 align-text-bottom" />
                 <a
                   href="mailto:support@tryhoster.com"
-                  className="text-primary hover:underline"
+                  className="text-black hover:underline"
                 >
                   support@tryhoster.com
                 </a>

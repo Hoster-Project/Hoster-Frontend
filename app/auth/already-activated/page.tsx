@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation";
 export default function AlreadyActivatedPage() {
   const router = useRouter();
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6 py-10">
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center px-6 py-10">
       <Card className="w-full max-w-md p-6 space-y-4">
-        <h1 className="text-xl font-semibold text-primary">Account Already Activated</h1>
+        <h1 className="text-xl font-semibold text-black">Account Already Activated</h1>
         <p className="text-sm text-muted-foreground">
           This invitation link has already been used. Your account is active.
         </p>
@@ -20,4 +20,3 @@ export default function AlreadyActivatedPage() {
     </div>
   );
 }
-

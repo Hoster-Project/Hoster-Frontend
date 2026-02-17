@@ -1,17 +1,23 @@
 /** @type {import('next').NextConfig} */
 const path = require("path");
 
+const rawBackendOrigin =
+  process.env.NEXT_PUBLIC_API_PROXY_TARGET ||
+  process.env.API_PROXY_TARGET ||
+  "http://127.0.0.1:5000";
+const backendOrigin = rawBackendOrigin.replace(/\/+$/, "");
+
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:5000/api/:path*',
+        destination: `${backendOrigin}/api/:path*`,
       },
       {
         source: '/uploads/:path*',
-        destination: 'http://localhost:5000/uploads/:path*',
+        destination: `${backendOrigin}/uploads/:path*`,
       },
     ];
   },

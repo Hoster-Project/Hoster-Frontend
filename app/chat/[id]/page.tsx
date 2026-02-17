@@ -1,4 +1,4 @@
-import ChatPage from '@/components/pages/chat';
+import ChatPage from '@/components/pages/host/chat';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

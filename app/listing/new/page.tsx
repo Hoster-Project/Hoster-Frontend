@@ -1,4 +1,4 @@
-import ListingCreatePage from "@/components/pages/listing-create";
+import ListingCreatePage from "@/components/pages/host/listing-create";
 
 export const metadata = {
   title: "Add Unit | Hoster",

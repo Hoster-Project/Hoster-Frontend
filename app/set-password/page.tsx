@@ -26,10 +26,10 @@ function SetPasswordInner() {
   const canSubmit = token.length >= 10 && passwordOk && confirm === password && !isSubmitting;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6 py-10">
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center px-6 py-10">
       <Card className="w-full max-w-md p-6 space-y-4" data-testid="set-password-page">
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold text-primary">Create password</h1>
+          <h1 className="text-xl font-semibold text-black">Create password</h1>
           <p className="text-sm text-muted-foreground">
             Set your password to access your account. This link expires after 1 hour.
           </p>

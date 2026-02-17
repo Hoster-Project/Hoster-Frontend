@@ -44,7 +44,10 @@ export default function LoginPage() {
 
   const loginMutation = useMutation({
     mutationFn: async (values: any) => {
-      const res = await apiRequest("POST", "/api/auth/login", values);
+      const res = await apiRequest("POST", "/api/auth/login", {
+        ...values,
+        portal: "hoster",
+      });
       return res.json();
     },
     onSuccess: (data) => {

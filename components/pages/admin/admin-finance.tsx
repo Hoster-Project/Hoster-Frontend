@@ -87,8 +87,8 @@ export default function AdminFinance() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
-        <h2 className="text-xl font-semibold">Finance</h2>
+      <div className="portal-page space-y-6">
+        <h2 className="portal-title">Finance</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-28 w-full rounded-md" />
@@ -105,9 +105,9 @@ export default function AdminFinance() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="portal-page space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold text-primary" data-testid="text-finance-title">Finance</h2>
+        <h2 className="portal-title" data-testid="text-finance-title">Finance</h2>
         <Badge variant="secondary" data-testid="badge-subscription-model">
           Subscription Revenue
         </Badge>

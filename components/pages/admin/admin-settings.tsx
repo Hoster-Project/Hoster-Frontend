@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,9 +31,10 @@ import {
   Lock,
   Bell,
   Shield,
-  Mail,
+  UserRoundCog,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 
 interface TeamMember {
   id: string;
@@ -44,13 +46,13 @@ interface TeamMember {
 }
 
 export default function AdminSettings() {
+  const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showRoleDialog, setShowRoleDialog] = useState<TeamMember | null>(null);
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [newRole, setNewRole] = useState("host");
-  const [testEmail, setTestEmail] = useState("");
 
   const [notifications, setNotifications] = useState({
     newProviderRequests: true,
@@ -114,19 +116,6 @@ export default function AdminSettings() {
     },
   });
 
-  const sendTestEmail = useMutation({
-    mutationFn: async (to: string) => {
-      const res = await apiRequest("POST", "/api/admin/settings/email/test", { to });
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Test email sent" });
-    },
-    onError: () => {
-      toast({ title: "Failed to send test email", variant: "destructive" });
-    },
-  });
-
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (file) updateAvatar.mutate(file);
@@ -145,8 +134,8 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-xl font-semibold text-primary" data-testid="text-settings-title">Settings</h2>
+    <div className="portal-page space-y-6">
+      <h2 className="portal-title" data-testid="text-settings-title">Settings</h2>
 
       <Card data-testid="card-profile-settings">
         <CardHeader>
@@ -155,55 +144,33 @@ export default function AdminSettings() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={(user as any)?.profileImageUrl || undefined} />
-                <AvatarFallback className="text-lg font-semibold">
-                  {(user as any)?.firstName?.[0] || (user as any)?.email?.[0]?.toUpperCase() || "A"}
-                </AvatarFallback>
-              </Avatar>
-              <label className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary flex items-center justify-center cursor-pointer">
-                <Camera className="h-3 w-3 text-primary-foreground" />
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} data-testid="input-avatar-upload" />
-              </label>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={(user as any)?.profileImageUrl || undefined} />
+                  <AvatarFallback className="text-lg font-semibold">
+                    {(user as any)?.firstName?.[0] || (user as any)?.email?.[0]?.toUpperCase() || "A"}
+                  </AvatarFallback>
+                </Avatar>
+                <label className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary flex items-center justify-center cursor-pointer">
+                  <Camera className="h-3 w-3 text-primary-foreground" />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} data-testid="input-avatar-upload" />
+                </label>
+              </div>
+              <div>
+                <p className="font-medium" data-testid="text-admin-name">
+                  {(user as any)?.firstName} {(user as any)?.lastName}
+                </p>
+                <p className="text-sm text-muted-foreground" data-testid="text-admin-email">
+                  {(user as any)?.email}
+                </p>
+                <Badge className={`${getCategoryBadgeClass("admin", "role")} mt-1 text-[10px]`}>Admin</Badge>
+              </div>
             </div>
-            <div>
-              <p className="font-medium" data-testid="text-admin-name">
-                {(user as any)?.firstName} {(user as any)?.lastName}
-              </p>
-              <p className="text-sm text-muted-foreground" data-testid="text-admin-email">
-                {(user as any)?.email}
-              </p>
-              <Badge variant="secondary" className="mt-1 text-[10px]">Admin</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card data-testid="card-email-settings">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Mail className="h-4 w-4" /> Email Configuration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Email settings are configured via environment variables on the server.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input
-              placeholder="Send test email to..."
-              value={testEmail || (user as any)?.email || ""}
-              onChange={(e) => setTestEmail(e.target.value)}
-              data-testid="input-test-email"
-            />
-            <Button
-              onClick={() => sendTestEmail.mutate((testEmail || (user as any)?.email || "").trim())}
-              disabled={sendTestEmail.isPending}
-              data-testid="button-send-test-email"
-            >
-              {sendTestEmail.isPending ? "Sending..." : "Send Test"}
+            <Button variant="outline" onClick={() => router.push("/admin/profile")} data-testid="button-go-admin-profile">
+              <UserRoundCog className="h-4 w-4 mr-1.5" />
+              Update Profile
             </Button>
           </div>
         </CardContent>
@@ -250,7 +217,7 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
-                    <Badge variant="secondary" className="text-[10px]">{member.role}</Badge>
+                    <Badge className={`${getCategoryBadgeClass(member.role, "role")} text-[10px]`}>{member.role}</Badge>
                     <Button
                       variant="outline"
                       size="sm"

@@ -1,4 +1,4 @@
-import NotificationsPage from '@/components/pages/notifications';
+import NotificationsPage from '@/components/pages/host/notifications';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

@@ -1,4 +1,4 @@
-import CalendarPage from '@/components/pages/calendar';
+import CalendarPage from '@/components/pages/host/calendar';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

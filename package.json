@@ -2,12 +2,16 @@
   "name": "hoster-client",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <25"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "clean": "rm -rf .next tsconfig.tsbuildinfo log.txt"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

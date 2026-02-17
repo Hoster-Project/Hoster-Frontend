@@ -87,7 +87,7 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-muted/30 text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -158,6 +158,135 @@
   /* Smooth tab switching indicator */
   .tab-indicator {
     @apply transition-all duration-200 ease-in-out;
+  }
+
+  /* Category badge palette (global + stable across all pages) */
+  .badge-unified-radius {
+    border-radius: 9999px;
+  }
+
+  .badge-cat-base {
+    border-width: 1px;
+    border-style: solid;
+  }
+
+  .badge-cat-role-host { border-color: #93c5fd; background: #dbeafe; color: #1e3a8a; }
+  .badge-cat-role-provider { border-color: #fdba74; background: #ffedd5; color: #9a3412; }
+  .badge-cat-role-admin { border-color: #c4b5fd; background: #ede9fe; color: #5b21b6; }
+  .badge-cat-role-employee { border-color: #67e8f9; background: #cffafe; color: #0e7490; }
+  .badge-cat-role-moderator { border-color: #a5b4fc; background: #e0e7ff; color: #312e81; }
+  .badge-cat-role-default { border-color: #cbd5e1; background: #f1f5f9; color: #334155; }
+
+  .badge-cat-plan-light { border-color: #94a3b8; background: #f1f5f9; color: #334155; }
+  .badge-cat-plan-growth { border-color: #60a5fa; background: #eff6ff; color: #1d4ed8; }
+  .badge-cat-plan-expanding { border-color: #e879f9; background: #fdf4ff; color: #a21caf; }
+  .badge-cat-plan-default { border-color: #cbd5e1; background: #f1f5f9; color: #334155; }
+
+  .badge-cat-status-active { border-color: #5eead4; background: #ccfbf1; color: #115e59; }
+  .badge-cat-status-available { border-color: #5eead4; background: #ccfbf1; color: #115e59; }
+  .badge-cat-status-booked { border-color: #fdba74; background: #ffedd5; color: #9a3412; }
+  .badge-cat-status-verified { border-color: #5eead4; background: #ccfbf1; color: #115e59; }
+  .badge-cat-status-password-set { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
+  .badge-cat-status-pending { border-color: #fdba74; background: #ffedd5; color: #9a3412; }
+  .badge-cat-status-accepted { border-color: #34d399; background: #d1fae5; color: #065f46; }
+  .badge-cat-status-declined { border-color: #fda4af; background: #ffe4e6; color: #9f1239; }
+  .badge-cat-status-approved { border-color: #2dd4bf; background: #ccfbf1; color: #134e4a; }
+  .badge-cat-status-rejected { border-color: #fca5a5; background: #fee2e2; color: #991b1b; }
+  .badge-cat-status-connected { border-color: #a3e635; background: #ecfccb; color: #3f6212; }
+  .badge-cat-status-configured { border-color: #f9a8d4; background: #fce7f3; color: #831843; }
+  .badge-cat-status-error { border-color: #fda4af; background: #fff1f2; color: #7f1d1d; }
+  .badge-cat-status-paused { border-color: #e9d5ff; background: #faf5ff; color: #7e22ce; }
+  .badge-cat-status-inactive { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }
+  .badge-cat-status-current { border-color: #a3e635; background: #ecfccb; color: #3f6212; }
+  .badge-cat-status-selected { border-color: #bef264; background: #f7fee7; color: #4d7c0f; }
+  .badge-cat-status-select { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
+  .badge-cat-status-email-verified { border-color: #67e8f9; background: #ecfeff; color: #155e75; }
+  .badge-cat-status-email-not-verified { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+  .badge-cat-status-confirmed { border-color: #6ee7b7; background: #ecfdf5; color: #065f46; }
+  .badge-cat-status-checked-in { border-color: #93c5fd; background: #eff6ff; color: #1e3a8a; }
+  .badge-cat-status-canceled { border-color: #fbcfe8; background: #fdf2f8; color: #9d174d; }
+  .badge-cat-status-suspended { border-color: #c4b5fd; background: #f3e8ff; color: #6b21a8; }
+  .badge-cat-status-blocked { border-color: #fca5a5; background: #ffe4e6; color: #9f1239; }
+  .badge-cat-status-default { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+
+  .badge-cat-type-cleaning { border-color: #93c5fd; background: #e0f2fe; color: #0c4a6e; }
+  .badge-cat-type-maintenance { border-color: #fdba74; background: #ffedd5; color: #9a3412; }
+  .badge-cat-type-company { border-color: #99f6e4; background: #ccfbf1; color: #134e4a; }
+  .badge-cat-type-freelancer { border-color: #fde68a; background: #fef9c3; color: #854d0e; }
+  .badge-cat-type-event { border-color: #c7d2fe; background: #e0e7ff; color: #3730a3; }
+  .badge-cat-type-default { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+
+  .badge-cat-env-staging { border-color: #bae6fd; background: #e0f7ff; color: #075985; }
+  .badge-cat-env-production { border-color: #f9a8d4; background: #fdf2f8; color: #831843; }
+  .badge-cat-env-default { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+
+  .badge-cat-method-get { border-color: #86efac; background: #ecfdf3; color: #166534; }
+  .badge-cat-method-post { border-color: #fcd34d; background: #fff7ed; color: #92400e; }
+  .badge-cat-method-put { border-color: #c4b5fd; background: #f5f3ff; color: #6d28d9; }
+  .badge-cat-method-patch { border-color: #99f6e4; background: #f0fdfa; color: #134e4a; }
+  .badge-cat-method-delete { border-color: #fca5a5; background: #fff1f2; color: #9f1239; }
+  .badge-cat-method-default { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+
+  .badge-cat-default { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+
+  /* ─── Portal UI (shared spacing + typography) ───────────── */
+  .portal-page {
+    @apply px-4 py-4 pb-8 md:p-6;
+  }
+
+  .portal-page-narrow {
+    @apply max-w-2xl mx-auto space-y-4;
+  }
+
+  .portal-header {
+    @apply flex items-center gap-2.5 mb-6 py-1;
+  }
+
+  .portal-title {
+    @apply text-lg font-semibold text-black;
+  }
+
+  .portal-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+
+  .portal-card {
+    @apply p-4 space-y-4;
+  }
+
+  .portal-label {
+    @apply text-xs text-muted-foreground flex items-center gap-1.5;
+  }
+
+  /* ─── Chat UI (mobile composer above bottom nav) ────────── */
+  .has-bottom-nav {
+    --bottom-nav-offset: 64px;
+  }
+  @media (min-width: 768px) {
+    .has-bottom-nav {
+      --bottom-nav-offset: 0px;
+    }
+  }
+
+  .chat-composer {
+    @apply border-t bg-background px-4 py-3;
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
+  }
+
+  @media (max-width: 767px) {
+    .chat-composer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: var(--bottom-nav-offset, 0px);
+      padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    }
+
+    .chat-scroll {
+      padding-bottom: calc(var(--bottom-nav-offset, 0px) + 84px + env(safe-area-inset-bottom));
+    }
   }
 }
 

@@ -42,7 +42,7 @@ export default function AdminLogin() {
     const { email, password } = values;
 
     try {
-      await apiRequest("POST", "/api/auth/login", { email, password });
+      await apiRequest("POST", "/api/auth/login", { email, password, portal: "admin" });
 
       const checkRes = await apiRequest("GET", "/api/admin/auth-check");
       const checkData = await checkRes.json();
@@ -77,7 +77,7 @@ export default function AdminLogin() {
     const { email, password, setupToken } = values;
 
     try {
-      await apiRequest("POST", "/api/auth/login", { email, password });
+      await apiRequest("POST", "/api/auth/login", { email, password, portal: "admin" });
 
       const setupRes = await apiRequest("POST", "/api/admin/setup", {
         token: (setupToken || "").trim() || undefined,
@@ -118,7 +118,7 @@ export default function AdminLogin() {
               <Lock className="h-6 w-6 text-primary" />
             )}
           </div>
-          <h1 className="text-2xl font-extrabold text-primary" data-testid="text-admin-title">Hoster</h1>
+          <h1 className="text-2xl font-extrabold text-black" data-testid="text-admin-title">Hoster</h1>
           <p className="text-sm text-muted-foreground mt-1" data-testid="text-admin-subtitle">
             {showSetup ? "First-Time Admin Setup" : "Admin Panel"}
           </p>

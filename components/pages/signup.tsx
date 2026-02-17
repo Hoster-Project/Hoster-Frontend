@@ -228,6 +228,7 @@ export default function SignupPage() {
                     country: values.country,
                     phone: fullPhone,
                     city: values.city?.trim() || undefined,
+                    portal: "hoster",
                   },
                   { onSettled: () => setSubmitting(false) },
                 );
