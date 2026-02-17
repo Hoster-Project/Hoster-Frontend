@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +31,10 @@ import {
   Lock,
   Bell,
   Shield,
+  UserRoundCog,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 
 interface TeamMember {
   id: string;
@@ -43,6 +46,7 @@ interface TeamMember {
 }
 
 export default function AdminSettings() {
+  const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -130,8 +134,8 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-xl font-semibold text-primary" data-testid="text-settings-title">Settings</h2>
+    <div className="portal-page space-y-6">
+      <h2 className="portal-title" data-testid="text-settings-title">Settings</h2>
 
       <Card data-testid="card-profile-settings">
         <CardHeader>
@@ -140,28 +144,34 @@ export default function AdminSettings() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={(user as any)?.profileImageUrl || undefined} />
-                <AvatarFallback className="text-lg font-semibold">
-                  {(user as any)?.firstName?.[0] || (user as any)?.email?.[0]?.toUpperCase() || "A"}
-                </AvatarFallback>
-              </Avatar>
-              <label className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary flex items-center justify-center cursor-pointer">
-                <Camera className="h-3 w-3 text-primary-foreground" />
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} data-testid="input-avatar-upload" />
-              </label>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={(user as any)?.profileImageUrl || undefined} />
+                  <AvatarFallback className="text-lg font-semibold">
+                    {(user as any)?.firstName?.[0] || (user as any)?.email?.[0]?.toUpperCase() || "A"}
+                  </AvatarFallback>
+                </Avatar>
+                <label className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary flex items-center justify-center cursor-pointer">
+                  <Camera className="h-3 w-3 text-primary-foreground" />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} data-testid="input-avatar-upload" />
+                </label>
+              </div>
+              <div>
+                <p className="font-medium" data-testid="text-admin-name">
+                  {(user as any)?.firstName} {(user as any)?.lastName}
+                </p>
+                <p className="text-sm text-muted-foreground" data-testid="text-admin-email">
+                  {(user as any)?.email}
+                </p>
+                <Badge className={`${getCategoryBadgeClass("admin", "role")} mt-1 text-[10px]`}>Admin</Badge>
+              </div>
             </div>
-            <div>
-              <p className="font-medium" data-testid="text-admin-name">
-                {(user as any)?.firstName} {(user as any)?.lastName}
-              </p>
-              <p className="text-sm text-muted-foreground" data-testid="text-admin-email">
-                {(user as any)?.email}
-              </p>
-              <Badge variant="secondary" className="mt-1 text-[10px]">Admin</Badge>
-            </div>
+            <Button variant="outline" onClick={() => router.push("/admin/profile")} data-testid="button-go-admin-profile">
+              <UserRoundCog className="h-4 w-4 mr-1.5" />
+              Update Profile
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -207,7 +217,7 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
-                    <Badge variant="secondary" className="text-[10px]">{member.role}</Badge>
+                    <Badge className={`${getCategoryBadgeClass(member.role, "role")} text-[10px]`}>{member.role}</Badge>
                     <Button
                       variant="outline"
                       size="sm"

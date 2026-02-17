@@ -237,7 +237,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section ref={featuresRef} className="py-16 sm:py-24 bg-muted/30" data-testid="section-features">
+      <section ref={featuresRef} className="py-16 sm:py-24 bg-background" data-testid="section-features">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">Features</p>
@@ -267,7 +267,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section ref={pricingRef} className="py-16 sm:py-24 bg-muted/30" data-testid="section-pricing">
+      <section ref={pricingRef} className="py-16 sm:py-24 bg-background" data-testid="section-pricing">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-2">Pricing</p>
@@ -328,6 +328,8 @@ export default function LandingPage() {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <button onClick={() => scrollTo(featuresRef)} className="transition-colors" data-testid="link-footer-features">Features</button>
               <button onClick={() => scrollTo(pricingRef)} className="transition-colors" data-testid="link-footer-pricing">Pricing</button>
+              <Link href="/terms" className="transition-colors hover:underline" data-testid="link-footer-terms">Terms</Link>
+              <Link href="/privacy" className="transition-colors hover:underline" data-testid="link-footer-privacy">Privacy</Link>
               <Link href="/login" className="transition-colors" data-testid="link-footer-login">Log in</Link>
             </div>
           </div>

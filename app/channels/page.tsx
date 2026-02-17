@@ -1,4 +1,4 @@
-import ChannelsPage from '@/components/pages/channels';
+import ChannelsPage from '@/components/pages/host/channels';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

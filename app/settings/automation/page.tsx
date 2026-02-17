@@ -1,4 +1,4 @@
-import SettingsAutomationPage from '@/components/pages/settings-automation';
+import SettingsAutomationPage from '@/components/pages/host/settings-automation';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

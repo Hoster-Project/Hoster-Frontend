@@ -1,12 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { formatMoney } from "@/lib/money";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 import {
   ArrowLeft,
   Building2,
@@ -36,6 +40,9 @@ interface UserDetail {
     blocked: boolean;
     createdAt: string;
     updatedAt: string;
+    accountStatus?: string;
+    invitationSentAt?: string | null;
+    emailVerified?: boolean;
   };
   listings: Array<{
     id: string;
@@ -65,24 +72,34 @@ interface UserDetail {
   }>;
 }
 
+interface InvitationStatus {
+  userId: string;
+  email: string;
+  accountStatus: string;
+  invitationSentAt: string | null;
+  invitationUsed: boolean;
+  invitationExpired: boolean;
+  lastResentAt: string | null;
+  resentCount: number;
+  expiresAt: string | null;
+}
+
 function getPlanInfo(plan: string) {
   switch (plan) {
-    case "growth": return { label: "Growth", price: "$19/mo", maxUnits: 5, variant: "default" as const };
-    case "expanding": return { label: "Expanding", price: "$39/mo", maxUnits: 15, variant: "destructive" as const };
-    default: return { label: "Light", price: "Free", maxUnits: 1, variant: "secondary" as const };
+    case "growth": return { label: "Growth", price: 19, maxUnits: 5, badgeClass: getCategoryBadgeClass("growth", "plan") };
+    case "expanding": return { label: "Expanding", price: 39, maxUnits: 15, badgeClass: getCategoryBadgeClass("expanding", "plan") };
+    default: return { label: "Light", price: 0, maxUnits: 1, badgeClass: getCategoryBadgeClass("light", "plan") };
   }
 }
 
-function getStatusVariant(status: string) {
-  switch (status) {
-    case "CONFIRMED": case "CHECKED_IN": return "default" as const;
-    case "CANCELED": case "REJECTED": return "destructive" as const;
-    default: return "secondary" as const;
-  }
+function getRoleBadgeClass(role: string) {
+  return getCategoryBadgeClass(role, "role");
 }
 
 export default function AdminUserDetail({ userId }: { userId: string }) {
   const router = useRouter();
+  const { toast } = useToast();
+  const { user: adminUser } = useAuth();
 
   const { data, isLoading } = useQuery<UserDetail>({
     queryKey: ["/api/admin/users", userId],
@@ -94,9 +111,36 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
     enabled: !!userId,
   });
 
+  const { data: inviteStatus } = useQuery<InvitationStatus>({
+    queryKey: ["/api/admin/users/invitation-status", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/invitation-status`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch invitation status");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const resendInviteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${userId}/resend-invitation`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to resend invitation");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation resent" });
+    },
+    onError: () => {
+      toast({ title: "Failed to resend invitation", variant: "destructive" });
+    },
+  });
+
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="portal-page space-y-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-60 w-full" />
@@ -106,7 +150,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
 
   if (!data) {
     return (
-      <div className="p-6">
+      <div className="portal-page">
         <p className="text-muted-foreground">User not found</p>
       </div>
     );
@@ -119,9 +163,12 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
   const joinedDate = user.createdAt ? format(new Date(user.createdAt), "MMM d, yyyy") : "N/A";
 
   const totalRevenue = recentReservations.reduce((sum, r) => sum + parseFloat(r.totalAmount as any || "0"), 0);
+  const planPriceLabel = planInfo.price === 0
+    ? "Free"
+    : `${formatMoney(planInfo.price, adminUser?.currency)}/mo`;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="portal-page space-y-6">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -132,7 +179,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-xl font-semibold" data-testid="text-user-detail-title">User Details</h2>
+        <h2 className="portal-title" data-testid="text-user-detail-title">User Details</h2>
       </div>
 
       <Card data-testid="card-user-profile">
@@ -146,9 +193,9 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-lg font-semibold" data-testid="text-user-display-name">{displayName}</h3>
-                  <Badge variant="secondary" data-testid="badge-user-role">{user.role}</Badge>
-                  <Badge variant={planInfo.variant} data-testid="badge-user-plan">{planInfo.label}</Badge>
-                  {user.blocked && <Badge variant="destructive">Blocked</Badge>}
+                  <Badge className={getRoleBadgeClass(user.role)} data-testid="badge-user-role">{user.role}</Badge>
+                  <Badge className={planInfo.badgeClass} data-testid="badge-user-plan">{planInfo.label}</Badge>
+                  {user.blocked && <Badge className={getCategoryBadgeClass("blocked", "status")}>Blocked</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground mt-0.5">Joined {joinedDate}</p>
               </div>
@@ -182,6 +229,43 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
         </CardContent>
       </Card>
 
+      <Card data-testid="card-invitation-status">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Radio className="h-4 w-4" />
+            Invitation Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={getCategoryBadgeClass(inviteStatus?.accountStatus || user.accountStatus || "PENDING", "status")}>
+              {inviteStatus?.accountStatus || user.accountStatus || "PENDING"}
+            </Badge>
+            {user.emailVerified && <Badge className={getCategoryBadgeClass("email-verified", "status")}>Email Verified</Badge>}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Invitation Sent: {inviteStatus?.invitationSentAt ? format(new Date(inviteStatus.invitationSentAt), "MMM d, yyyy HH:mm") : "N/A"}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Link Expires: {inviteStatus?.expiresAt ? format(new Date(inviteStatus.expiresAt), "MMM d, yyyy HH:mm") : "N/A"}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Resent Count: {inviteStatus?.resentCount ?? 0}
+          </div>
+          {["PENDING", "PASSWORD_SET"].includes(inviteStatus?.accountStatus || user.accountStatus || "") && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => resendInviteMutation.mutate()}
+              disabled={resendInviteMutation.isPending}
+              data-testid="button-resend-invite-detail"
+            >
+              {resendInviteMutation.isPending ? "Resending..." : "Resend Invitation"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
       <Card data-testid="card-subscription-info">
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -197,7 +281,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Price</p>
-              <p className="text-sm font-medium" data-testid="text-subscription-price">{planInfo.price}</p>
+              <p className="text-sm font-medium" data-testid="text-subscription-price">{planPriceLabel}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Max Units</p>
@@ -208,11 +292,13 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
               <p className="text-sm font-medium" data-testid="text-units-used">{listings.length} / {planInfo.maxUnits}</p>
             </div>
           </div>
-          {planInfo.price !== "Free" && (
+          {planInfo.price !== 0 && (
             <div className="mt-4 p-3 rounded-md bg-muted/50">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Booking Volume</span>
-                <span className="text-sm font-medium" data-testid="text-booking-volume">${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                <span className="text-sm font-medium" data-testid="text-booking-volume">
+                  {formatMoney(totalRevenue, adminUser?.currency, { maximumFractionDigits: 0 })}
+                </span>
               </div>
             </div>
           )}
@@ -235,7 +321,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
                     <p className="text-sm font-medium">{listing.name}</p>
                     <p className="text-xs text-muted-foreground">{listing.reservationCount} bookings</p>
                   </div>
-                  <Badge variant={listing.status === "ACTIVE" ? "default" : "secondary"}>
+                  <Badge className={getCategoryBadgeClass(listing.status, "status")}>
                     {listing.status}
                   </Badge>
                 </div>
@@ -267,7 +353,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
                       </p>
                     )}
                   </div>
-                  <Badge variant={conn.status === "CONNECTED" ? "default" : conn.status === "ERROR" ? "destructive" : "secondary"}>
+                  <Badge className={getCategoryBadgeClass(conn.status, "status")}>
                     {conn.status}
                   </Badge>
                 </div>
@@ -294,7 +380,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium">{res.guestName}</p>
-                      <Badge variant={getStatusVariant(res.status)} className="text-xs">{res.status}</Badge>
+                      <Badge className={`${getCategoryBadgeClass(res.status, "status")} text-xs`}>{res.status}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {res.listingName} via {res.channelName}
@@ -305,7 +391,7 @@ export default function AdminUserDetail({ userId }: { userId: string }) {
                   </div>
                   {res.totalAmount && (
                     <p className="text-sm font-medium flex-shrink-0 ml-3">
-                      {res.currency || "$"}{parseFloat(res.totalAmount as any).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      {formatMoney(res.totalAmount as any, res.currency || adminUser?.currency)}
                     </p>
                   )}
                 </div>

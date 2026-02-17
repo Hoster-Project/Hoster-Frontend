@@ -1,4 +1,4 @@
-import SettingsCleaningPage from '@/components/pages/settings-cleaning';
+import SettingsCleaningPage from '@/components/pages/host/settings-cleaning';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 

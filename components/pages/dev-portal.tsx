@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 import {
   ArrowLeft,
   Key,
@@ -100,28 +101,28 @@ function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "CONNECTED":
       return (
-        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700" data-testid="badge-status-connected">
+        <Badge className={getCategoryBadgeClass("connected", "status")} data-testid="badge-status-connected">
           <Check className="h-3 w-3 mr-1" />
           Connected
         </Badge>
       );
     case "CONFIGURED":
       return (
-        <Badge variant="secondary" className="bg-amber-50 text-amber-700" data-testid="badge-status-configured">
+        <Badge className={getCategoryBadgeClass("configured", "status")} data-testid="badge-status-configured">
           <AlertTriangle className="h-3 w-3 mr-1" />
           Configured
         </Badge>
       );
     case "ERROR":
       return (
-        <Badge variant="secondary" className="bg-red-50 text-red-700" data-testid="badge-status-error">
+        <Badge className={getCategoryBadgeClass("error", "status")} data-testid="badge-status-error">
           <X className="h-3 w-3 mr-1" />
           Error
         </Badge>
       );
     default:
       return (
-        <Badge variant="secondary" data-testid="badge-status-not-configured">
+        <Badge className={getCategoryBadgeClass("inactive", "status")} data-testid="badge-status-not-configured">
           <Circle className="h-3 w-3 mr-1" />
           Not Configured
         </Badge>
@@ -393,11 +394,11 @@ function ApiLogsSection() {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary" className="text-xs">
+                <Badge className={`${getCategoryBadgeClass(log.method, "method")} text-xs`}>
                   {log.method}
                 </Badge>
                 <span className="text-xs font-medium">{log.channelKey}</span>
-                <Badge variant="secondary" className="text-xs">
+                <Badge className={`${getCategoryBadgeClass(log.environment, "env")} text-xs`}>
                   {log.environment}
                 </Badge>
               </div>
@@ -491,7 +492,7 @@ export default function DevPortalPage() {
   const errorCount = configs?.filter((c) => c.status === "ERROR").length || 0;
 
   return (
-    <div className="min-h-screen bg-background" data-testid="page-dev-portal">
+    <div className="min-h-screen bg-muted/30" data-testid="page-dev-portal">
       <div className="border-b bg-card sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between gap-4 h-14">
@@ -507,7 +508,7 @@ export default function DevPortalPage() {
               </Button>
               <div className="flex items-center gap-2">
                 <Settings2 className="h-5 w-5 text-primary" />
-                <h1 className="text-lg font-semibold text-primary" data-testid="text-dev-portal-title">Dev Portal</h1>
+                <h1 className="text-lg font-semibold text-black" data-testid="text-dev-portal-title">Dev Portal</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">

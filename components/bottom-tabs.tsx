@@ -25,14 +25,15 @@ export function BottomTabs({
   items?: TabItem[];
 }) {
   const pathname = usePathname();
+  const safeItems = items.slice(0, 6);
 
   return (
     <nav
       className="flex-shrink-0 border-t bg-background safe-area-bottom"
       data-testid="bottom-tabs"
     >
-      <div className="grid w-full" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
-        {items.map((tab) => {
+      <div className="grid w-full" style={{ gridTemplateColumns: `repeat(${safeItems.length}, 1fr)` }}>
+        {safeItems.map((tab) => {
           const isActive =
             tab.path === "/dashboard" || tab.path === "/admin"
               ? pathname === tab.path

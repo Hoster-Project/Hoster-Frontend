@@ -7,10 +7,15 @@ interface AuthUser {
   firstName: string | null;
   lastName: string | null;
   country: string | null;
+  city?: string | null;
   phone: string | null;
   profileImageUrl: string | null;
+  currency?: string | null;
   role: string;
   blocked: boolean;
+  emailVerifiedAt?: string | null;
+  emailVerified?: boolean;
+  accountStatus?: string;
 }
 
 async function fetchUser(): Promise<AuthUser | null> {

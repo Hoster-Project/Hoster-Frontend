@@ -1,5 +1,0 @@
-commit 9ae804730b30e787d03d182a6bcf0c7862576827
-Author: Zack River <elmutamiz@gmail.com>
-Date:   Sat Feb 14 16:25:48 2026 +0200
-
-    Initialize frontend repository

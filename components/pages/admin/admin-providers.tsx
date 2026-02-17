@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 interface ServiceProvider {
   id: string;
@@ -66,6 +68,24 @@ interface ProviderRequest {
   message: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string | null;
+}
+
+const PROVIDER_COMPANY_SIGNUP_PREFIX = "COMPANY_SIGNUP_V1::";
+
+function getRequestMessage(message: string | null): string | null {
+  if (!message) return null;
+  if (!message.startsWith(PROVIDER_COMPANY_SIGNUP_PREFIX)) return message;
+  try {
+    const payload = JSON.parse(message.slice(PROVIDER_COMPANY_SIGNUP_PREFIX.length));
+    const pieces = [
+      "Provider company signup request",
+      payload?.companyType ? `Type: ${payload.companyType}` : null,
+      payload?.description ? `Details: ${payload.description}` : null,
+    ].filter(Boolean);
+    return pieces.join(" | ");
+  } catch {
+    return "Provider company signup request";
+  }
 }
 
 interface Promotion {
@@ -99,6 +119,17 @@ const typeBg = {
 export default function AdminProviders() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>("providers");
+  const searchParams = useSearchParams();
+  const initialNavApplied = useRef(false);
+
+  useEffect(() => {
+    if (initialNavApplied.current) return;
+    const tab = (searchParams.get("tab") || "").toLowerCase();
+    if (tab === "requests") setActiveTab("requests");
+    else if (tab === "promotions") setActiveTab("promotions");
+    else if (tab === "providers") setActiveTab("providers");
+    initialNavApplied.current = true;
+  }, [searchParams]);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [showAddRequest, setShowAddRequest] = useState(false);
@@ -205,9 +236,9 @@ export default function AdminProviders() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="portal-page space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold text-primary" data-testid="text-providers-title">Providers</h2>
+        <h2 className="portal-title" data-testid="text-providers-title">Providers</h2>
       </div>
 
       <div className="flex items-center gap-1 border-b overflow-x-auto scrollbar-hide">
@@ -268,8 +299,8 @@ export default function AdminProviders() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium">{p.name}</p>
-                          <Badge variant="secondary" className="text-[10px]">{p.type}</Badge>
-                          {p.status === "inactive" && <Badge variant="outline" className="text-[10px]">Inactive</Badge>}
+                          <Badge className={`${getCategoryBadgeClass(p.type, "type")} text-[10px]`}>{p.type}</Badge>
+                          {p.status === "inactive" && <Badge className={`${getCategoryBadgeClass("inactive", "status")} text-[10px]`}>Inactive</Badge>}
                         </div>
                         {p.companyName && <p className="text-xs text-muted-foreground mt-0.5">{p.companyName}</p>}
                       </div>
@@ -363,12 +394,12 @@ export default function AdminProviders() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium">{r.name}</p>
-                          <Badge variant="secondary" className="text-[10px]">{r.type}</Badge>
+                          <Badge className={`${getCategoryBadgeClass(r.type, "type")} text-[10px]`}>{r.type}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {r.email || r.phone || r.companyName || "No contact info"}
                         </p>
-                        {r.message && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{r.message}</p>}
+                        {r.message && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{getRequestMessage(r.message)}</p>}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {r.status === "PENDING" ? (
@@ -393,7 +424,7 @@ export default function AdminProviders() {
                             </Button>
                           </>
                         ) : (
-                          <Badge variant={r.status === "APPROVED" ? "default" : "destructive"} className="text-[10px]">
+                          <Badge className={`${getCategoryBadgeClass(r.status, "status")} text-[10px]`}>
                             {r.status}
                           </Badge>
                         )}
@@ -547,7 +578,7 @@ function ProviderPromotionsCard({ provider, onAddPromo }: { provider: ServicePro
         <div className="flex items-center gap-2">
           <Icon className={`h-4 w-4 ${typeColors[provider.type]}`} />
           <CardTitle className="text-sm font-medium">{provider.name}</CardTitle>
-          <Badge variant="secondary" className="text-[10px]">{provider.type}</Badge>
+          <Badge className={`${getCategoryBadgeClass(provider.type, "type")} text-[10px]`}>{provider.type}</Badge>
         </div>
         <Button variant="outline" size="sm" onClick={onAddPromo} data-testid={`button-add-promo-tab-${provider.id}`}>
           <Plus className="h-3.5 w-3.5 mr-1" /> Add

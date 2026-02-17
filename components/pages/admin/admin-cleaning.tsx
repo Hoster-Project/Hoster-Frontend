@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCategoryBadgeClass } from "@/lib/category-badge";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,10 @@ type AdminSubscription = {
   listingIds: string[];
 };
 
+type RawSubscription = any;
+type RawReview = any;
+type RawVisitReport = any;
+
 type AdminReview = {
   id: string;
   rating: number;
@@ -63,6 +68,18 @@ type AdminVisitReport = {
   review: { rating: number; comment: string | null; flaggedForAdmin: boolean } | null;
 };
 
+function normalizePhotoUrls(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((photo: any) => {
+      if (typeof photo === "string") return photo;
+      if (photo && typeof photo.url === "string") return photo.url;
+      if (photo && typeof photo.imageUrl === "string") return photo.imageUrl;
+      return null;
+    })
+    .filter((url): url is string => Boolean(url));
+}
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -84,14 +101,88 @@ export default function AdminCleaningPage() {
 
   const { data: subscriptions, isLoading: loadingSubs } = useQuery<AdminSubscription[]>({
     queryKey: ["/api/admin/cleaning/subscriptions"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/cleaning/subscriptions", { credentials: "include", cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load subscriptions");
+      const rows: RawSubscription[] = await res.json();
+      return (rows || []).map((s) => ({
+        id: s.id,
+        status: s.status,
+        createdAt: s.createdAt ?? null,
+        updatedAt: s.updatedAt ?? null,
+        declineMessage: s.declineMessage ?? null,
+        hostName:
+          s.hostName ??
+          `${s.host?.firstName || ""} ${s.host?.lastName || ""}`.trim() ??
+          "Host",
+        hostEmail: s.hostEmail ?? s.host?.email ?? null,
+        providerName:
+          s.providerName ??
+          `${s.provider?.firstName || ""} ${s.provider?.lastName || ""}`.trim() ??
+          "Provider",
+        providerCompany: s.providerCompany ?? s.provider?.companyName ?? null,
+        listingIds: Array.isArray(s.listingIds)
+          ? s.listingIds
+          : Array.isArray(s.listings)
+            ? s.listings.map((sl: any) => sl.listingId || sl.listing?.id).filter(Boolean)
+            : [],
+      }));
+    },
   });
 
   const { data: reviews, isLoading: loadingReviews } = useQuery<AdminReview[]>({
     queryKey: ["/api/admin/cleaning/reviews"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/cleaning/reviews", { credentials: "include", cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load reviews");
+      const rows: RawReview[] = await res.json();
+      return (rows || []).map((r) => ({
+        id: r.id,
+        rating: Number(r.rating || 0),
+        comment: r.comment ?? null,
+        flaggedForAdmin: Boolean(r.flaggedForAdmin),
+        createdAt: r.createdAt ?? null,
+        hostName:
+          r.hostName ??
+          `${r.host?.firstName || ""} ${r.host?.lastName || ""}`.trim() ??
+          "Host",
+        providerName:
+          r.providerName ??
+          `${r.provider?.firstName || ""} ${r.provider?.lastName || ""}`.trim() ??
+          "Provider",
+        providerCompany: r.providerCompany ?? r.provider?.companyName ?? null,
+      }));
+    },
   });
 
   const { data: visitReports, isLoading: loadingReports } = useQuery<AdminVisitReport[]>({
     queryKey: ["/api/admin/cleaning/visit-reports"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/cleaning/visit-reports", { credentials: "include", cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load visit reports");
+      const rows: RawVisitReport[] = await res.json();
+      return (rows || []).map((r) => ({
+        id: r.id,
+        visitDate: r.visitDate ?? "",
+        notes: r.notes ?? null,
+        photos: normalizePhotoUrls(
+          r.photos ?? r.photoUrls ?? r.reportPhotos ?? r.cleaningVisitReportPhotos
+        ),
+        createdAt: r.createdAt ?? null,
+        providerName:
+          r.providerName ??
+          `${r.provider?.firstName || ""} ${r.provider?.lastName || ""}`.trim() ??
+          "Provider",
+        listingName: r.listingName ?? r.listing?.name ?? "Listing",
+        review: r.review
+          ? {
+              rating: Number(r.review.rating || 0),
+              comment: r.review.comment ?? null,
+              flaggedForAdmin: Boolean(r.review.flaggedForAdmin),
+            }
+          : null,
+      }));
+    },
   });
 
   const pendingCount = subscriptions?.filter(s => s.status === "PENDING").length || 0;
@@ -101,9 +192,9 @@ export default function AdminCleaningPage() {
   const totalReports = visitReports?.length || 0;
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
+    <div className="portal-page space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold text-primary" data-testid="text-admin-cleaning-title">Cleaning Marketplace</h1>
+        <h1 className="text-2xl font-bold text-black" data-testid="text-admin-cleaning-title">Cleaning Marketplace</h1>
         <p className="text-sm text-muted-foreground mt-1">Monitor cleaning service subscriptions, visit reports, and host reviews.</p>
       </div>
 
@@ -198,10 +289,7 @@ export default function AdminCleaningPage() {
                         <p className="text-xs text-muted-foreground">Properties: {sub.listingIds?.length || 0} listing(s)</p>
                       </div>
                     </div>
-                    <Badge variant={
-                      sub.status === "ACCEPTED" ? "default" :
-                      sub.status === "PENDING" ? "secondary" : "destructive"
-                    }>
+                    <Badge className={getCategoryBadgeClass(sub.status, "status")}>
                       {sub.status}
                     </Badge>
                   </div>
@@ -238,7 +326,7 @@ export default function AdminCleaningPage() {
                       <p className="text-xs text-muted-foreground">Visit: {report.visitDate}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Badge variant="secondary" className="cursor-pointer" onClick={() => {
+                      <Badge className={`cursor-pointer ${getCategoryBadgeClass("configured", "status")}`} onClick={() => {
                         setSelectedPhotos(report.photos || []);
                         setSelectedPhotoIdx(0);
                         setPhotoDialogOpen(true);
@@ -247,7 +335,7 @@ export default function AdminCleaningPage() {
                         {report.photos?.length || 0} photos
                       </Badge>
                       {report.review && (
-                        <Badge variant={report.review.flaggedForAdmin ? "destructive" : "default"}>
+                        <Badge className={getCategoryBadgeClass(report.review.flaggedForAdmin ? "blocked" : "active", "status")}>
                           {report.review.flaggedForAdmin && <AlertTriangle className="h-3 w-3 mr-1" />}
                           <Star className="h-3 w-3 mr-0.5 fill-current" /> {report.review.rating}
                         </Badge>
@@ -291,7 +379,7 @@ export default function AdminCleaningPage() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       {review.flaggedForAdmin && (
-                        <Badge variant="destructive">
+                        <Badge className={getCategoryBadgeClass("blocked", "status")}>
                           <Flag className="h-3 w-3 mr-1" />
                           Flagged
                         </Badge>
@@ -363,7 +451,7 @@ export default function AdminCleaningPage() {
                 {selectedPhotos.map((photo, idx) => (
                   <div
                     key={idx}
-                    className={`aspect-square rounded overflow-hidden border-2 cursor-pointer ${idx === selectedPhotoIdx ? "border-primary" : "border-transparent"}`}
+                    className={`relative aspect-square rounded overflow-hidden border-2 cursor-pointer ${idx === selectedPhotoIdx ? "border-primary" : "border-transparent"}`}
                     onClick={() => setSelectedPhotoIdx(idx)}
                   >
                     <Image 

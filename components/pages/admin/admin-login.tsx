@@ -25,11 +25,24 @@ export default function AdminLogin() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const setupEnabled =
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXT_PUBLIC_ADMIN_SETUP_ENABLED === "true";
+  const setupTokenRequired =
+    process.env.NODE_ENV === "production" ||
+    process.env.NEXT_PUBLIC_ADMIN_SETUP_REQUIRE_TOKEN === "true";
+
+  const AdminSetupSchema = AdminLoginSchema.shape({
+    setupToken: setupTokenRequired
+      ? Yup.string().required("Setup token is required")
+      : Yup.string().notRequired(),
+  });
+
   const handleLogin = async (values: { email: string; password: string }, { setSubmitting }: FormikHelpers<any>) => {
     const { email, password } = values;
 
     try {
-      await apiRequest("POST", "/api/auth/login", { email, password });
+      await apiRequest("POST", "/api/auth/login", { email, password, portal: "admin" });
 
       const checkRes = await apiRequest("GET", "/api/admin/auth-check");
       const checkData = await checkRes.json();
@@ -57,13 +70,18 @@ export default function AdminLogin() {
     }
   };
 
-  const handleSetup = async (values: { email: string; password: string }, { setSubmitting }: FormikHelpers<any>) => {
-    const { email, password } = values;
+  const handleSetup = async (
+    values: { email: string; password: string; setupToken?: string },
+    { setSubmitting }: FormikHelpers<any>,
+  ) => {
+    const { email, password, setupToken } = values;
 
     try {
-      await apiRequest("POST", "/api/auth/login", { email, password });
+      await apiRequest("POST", "/api/auth/login", { email, password, portal: "admin" });
 
-      const setupRes = await apiRequest("POST", "/api/admin/setup");
+      const setupRes = await apiRequest("POST", "/api/admin/setup", {
+        token: (setupToken || "").trim() || undefined,
+      });
       const setupData = await setupRes.json();
 
       if (setupData.success) {
@@ -100,7 +118,7 @@ export default function AdminLogin() {
               <Lock className="h-6 w-6 text-primary" />
             )}
           </div>
-          <h1 className="text-2xl font-extrabold text-primary" data-testid="text-admin-title">Hoster</h1>
+          <h1 className="text-2xl font-extrabold text-black" data-testid="text-admin-title">Hoster</h1>
           <p className="text-sm text-muted-foreground mt-1" data-testid="text-admin-subtitle">
             {showSetup ? "First-Time Admin Setup" : "Admin Panel"}
           </p>
@@ -109,8 +127,8 @@ export default function AdminLogin() {
         <Card>
           <CardContent className="p-6">
             <Formik
-              initialValues={{ email: "", password: "" }}
-              validationSchema={AdminLoginSchema}
+              initialValues={{ email: "", password: "", setupToken: "" }}
+              validationSchema={showSetup ? AdminSetupSchema : AdminLoginSchema}
               onSubmit={showSetup ? handleSetup : handleLogin}
             >
               {({ isSubmitting, values, handleChange }: { isSubmitting: boolean; values: any; handleChange: any }) => (
@@ -152,10 +170,30 @@ export default function AdminLogin() {
                     </div>
                     <ErrorMessage name="password" component="div" className="text-xs text-destructive" />
                   </div>
+                  {showSetup ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="admin-setup-token">Setup token</Label>
+                      <Field
+                        as={Input}
+                        id="admin-setup-token"
+                        name="setupToken"
+                        type="text"
+                        placeholder="Enter setup token"
+                        data-testid="input-admin-setup-token"
+                        className="bg-card"
+                      />
+                      <ErrorMessage name="setupToken" component="div" className="text-xs text-destructive" />
+                    </div>
+                  ) : null}
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={isSubmitting || !values.email || !values.password}
+                    disabled={
+                      isSubmitting ||
+                      !values.email ||
+                      !values.password ||
+                      (showSetup && setupTokenRequired && !values.setupToken)
+                    }
                     data-testid="button-admin-login"
                   >
                     {isSubmitting ? (
@@ -170,7 +208,7 @@ export default function AdminLogin() {
         </Card>
 
         <div className="text-center mt-4">
-          {showSetup ? (
+          {!setupEnabled ? null : showSetup ? (
             <button
               className="text-xs text-muted-foreground underline"
               onClick={() => setShowSetup(false)}

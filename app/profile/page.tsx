@@ -3,7 +3,7 @@ import AppLayout from "@/components/layout/app-layout";
 import { constructMetadata } from "@/lib/metadata";
 import { Loader2 } from "lucide-react";
 
-const ProfilePage = dynamic(() => import("@/components/pages/profile"), {
+const ProfilePage = dynamic(() => import("@/components/pages/host/profile"), {
   loading: () => (
     <div className="flex items-center justify-center min-h-[60vh]">
       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

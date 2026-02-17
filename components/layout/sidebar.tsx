@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, CalendarDays, MessageSquare, Settings, LogOut, User } from "lucide-react";
+import { Home, CalendarDays, MessageSquare, Settings, LogOut } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,14 +10,11 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Menu items.
 const items = [
@@ -36,25 +33,17 @@ const items = [
     url: "/inbox",
     icon: MessageSquare,
   },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4 border-b">
-        <h1 className="text-xl font-extrabold tracking-tight text-primary">Hoster</h1>
-      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel>Hoster</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -77,25 +66,32 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t p-4">
-        <div className="flex items-center gap-3 mb-4">
-           <Avatar className="h-9 w-9">
-              <AvatarImage src={user?.profileImageUrl || undefined} />
-              <AvatarFallback className="text-xs">{user?.firstName?.[0] || "U"}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-medium truncate">{user?.firstName} {user?.lastName}</span>
-              <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
-            </div>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
+              <Link href="/settings">
+                <Settings />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => logout()} tooltip="Logout">
+              <LogOut />
+              <span>Logout</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <div className="mt-2 flex items-center justify-center gap-3 px-2 pb-2 text-[11px] text-muted-foreground">
+          <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">
+            Terms
+          </Link>
+          <span aria-hidden="true">•</span>
+          <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">
+            Privacy
+          </Link>
         </div>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start text-muted-foreground" 
-          onClick={() => logout()}
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Log out
-        </Button>
       </SidebarFooter>
     </Sidebar>
   );

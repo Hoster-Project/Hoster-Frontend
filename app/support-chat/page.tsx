@@ -1,4 +1,4 @@
-import SupportChatPage from '@/components/pages/support-chat';
+import SupportChatPage from '@/components/pages/host/support-chat';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 
@@ -10,7 +10,7 @@ export const metadata = constructMetadata({
 
 export default function Page() {
   return (
-    <AppLayout>
+    <AppLayout fullWidth noPadding hideMobileHeader hideBottomTabs>
       <SupportChatPage />
     </AppLayout>
   );

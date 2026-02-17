@@ -103,8 +103,8 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-xl font-semibold text-primary" data-testid="text-dashboard-title">Dashboard</h2>
+    <div className="portal-page space-y-6">
+      <h2 className="portal-title" data-testid="text-dashboard-title">Dashboard</h2>
 
       <div className="space-y-1">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Growth</h3>

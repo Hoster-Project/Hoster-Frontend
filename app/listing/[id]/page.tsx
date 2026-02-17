@@ -1,4 +1,4 @@
-import ListingDetailPage from '@/components/pages/listing-detail';
+import ListingDetailPage from '@/components/pages/host/listing-detail';
 import AppLayout from '@/components/layout/app-layout';
 import { constructMetadata } from "@/lib/metadata";
 import { Metadata } from 'next';
