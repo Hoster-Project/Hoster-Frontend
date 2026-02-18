@@ -10,18 +10,6 @@ interface RoleGuardProps {
   allowedRoles: string[]; // e.g., ['admin', 'moderator']
 }
 
-function getBaseDomainFromHostname(hostname: string): string | null {
-  const parts = hostname.split(".");
-  if (parts.length < 3) return null;
-  return parts.slice(1).join(".");
-}
-
-function roleHomePath(role: string): string {
-  if (role === "admin" || role === "moderator") return "/";
-  if (role === "provider" || role === "employee") return "/";
-  return "/dashboard";
-}
-
 function roleSubdomain(role: string): string | null {
   const adminSub = process.env.NEXT_PUBLIC_PORTAL_ADMIN_SUBDOMAIN || "admin";
   const providerSub = process.env.NEXT_PUBLIC_PORTAL_PROVIDER_SUBDOMAIN || "provider";
@@ -33,23 +21,58 @@ function roleSubdomain(role: string): string | null {
   return null;
 }
 
+function roleHomePath(role: string): string {
+  if (role === "admin" || role === "moderator") return "/";
+  if (role === "provider" || role === "employee") return "/";
+  return "/dashboard";
+}
+
+function buildPortalOriginFromHostname(hostname: string, targetSubdomain: string): string | null {
+  const adminSub = process.env.NEXT_PUBLIC_PORTAL_ADMIN_SUBDOMAIN || "admin";
+  const providerSub = process.env.NEXT_PUBLIC_PORTAL_PROVIDER_SUBDOMAIN || "provider";
+  const hostSub = process.env.NEXT_PUBLIC_PORTAL_HOST_SUBDOMAIN || "hoster";
+  const knownPortalSubs = new Set([adminSub, providerSub, hostSub]);
+
+  const parts = hostname.toLowerCase().split(".");
+  if (parts.length < 2) return null;
+
+  let envPrefix: string | null = null;
+  let rootDomain: string | null = null;
+
+  if (parts.length >= 4 && knownPortalSubs.has(parts[1])) {
+    envPrefix = parts[0];
+    rootDomain = parts.slice(2).join(".");
+  } else if (parts.length >= 3 && knownPortalSubs.has(parts[0])) {
+    rootDomain = parts.slice(1).join(".");
+  } else if (parts.length >= 3) {
+    envPrefix = parts[0];
+    rootDomain = parts.slice(1).join(".");
+  }
+
+  if (!rootDomain) return null;
+  return envPrefix
+    ? `${window.location.protocol}//${envPrefix}.${targetSubdomain}.${rootDomain}`
+    : `${window.location.protocol}//${targetSubdomain}.${rootDomain}`;
+}
+
 function redirectToRolePortal(role: string): string {
   if (typeof window === "undefined") {
     return role === "host" ? "/dashboard" : "/";
   }
 
-  const sub = roleSubdomain(role);
-  const base = getBaseDomainFromHostname(window.location.hostname);
+  const targetSub = roleSubdomain(role);
   const path = roleHomePath(role);
 
-  if (!sub || !base) {
+  if (!targetSub) return "/";
+
+  const origin = buildPortalOriginFromHostname(window.location.hostname, targetSub);
+  if (!origin) {
     if (role === "admin" || role === "moderator") return "/admin";
     if (role === "provider" || role === "employee") return "/provider";
     return "/dashboard";
   }
 
-  const protocol = window.location.protocol || "https:";
-  return `${protocol}//${sub}.${base}${path}`;
+  return `${origin}${path}`;
 }
 
 function loginPathForAllowedRoles(): string {

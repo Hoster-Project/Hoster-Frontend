@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const ADMIN_SUBDOMAIN = process.env.PORTAL_ADMIN_SUBDOMAIN || "admin";
 const PROVIDER_SUBDOMAIN = process.env.PORTAL_PROVIDER_SUBDOMAIN || "provider";
 const HOST_SUBDOMAIN = process.env.PORTAL_HOST_SUBDOMAIN || "hoster";
+const KNOWN_PORTAL_SUBDOMAINS = new Set([ADMIN_SUBDOMAIN, PROVIDER_SUBDOMAIN, HOST_SUBDOMAIN]);
 
 const PUBLIC_PREFIXES = [
   "/_next",
@@ -45,10 +46,40 @@ function getSubdomain(hostHeader: string | null): string | null {
   return parts[0] || null;
 }
 
-function getBaseDomain(hostHeader: string | null): string | null {
+function getDomainContext(hostHeader: string | null): { envPrefix: string | null; rootDomain: string | null } {
   const parts = getHostParts(hostHeader);
-  if (parts.length < 3) return null;
-  return parts.slice(1).join(".");
+  if (parts.length < 2) return { envPrefix: null, rootDomain: null };
+
+  if (parts.length >= 4 && KNOWN_PORTAL_SUBDOMAINS.has(parts[1])) {
+    return {
+      envPrefix: parts[0],
+      rootDomain: parts.slice(2).join("."),
+    };
+  }
+
+  if (parts.length >= 3 && KNOWN_PORTAL_SUBDOMAINS.has(parts[0])) {
+    return {
+      envPrefix: null,
+      rootDomain: parts.slice(1).join("."),
+    };
+  }
+
+  if (parts.length >= 3) {
+    return {
+      envPrefix: parts[0],
+      rootDomain: parts.slice(1).join("."),
+    };
+  }
+
+  return { envPrefix: null, rootDomain: null };
+}
+
+function buildPortalHost(hostHeader: string | null, portalSubdomain: string): string | null {
+  const { envPrefix, rootDomain } = getDomainContext(hostHeader);
+  if (!rootDomain) return null;
+  return envPrefix
+    ? `${envPrefix}.${portalSubdomain}.${rootDomain}`
+    : `${portalSubdomain}.${rootDomain}`;
 }
 
 function isPublicPath(pathname: string): boolean {
@@ -75,10 +106,12 @@ function redirectTo(req: NextRequest, pathname: string) {
 }
 
 function redirectToSubdomain(req: NextRequest, subdomain: string, pathname: string) {
-  const baseDomain = getBaseDomain(req.headers.get("host"));
-  if (!baseDomain) return redirectTo(req, pathname);
+  const portalHost = buildPortalHost(req.headers.get("host"), subdomain);
+  if (!portalHost) return redirectTo(req, pathname);
+
   const url = req.nextUrl.clone();
-  url.hostname = `${subdomain}.${baseDomain}`;
+  url.hostname = portalHost;
+  url.port = "";
   url.pathname = pathname;
   url.search = "";
   return NextResponse.redirect(url);
