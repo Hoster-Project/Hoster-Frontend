@@ -22,17 +22,11 @@ const HOST_APP_PREFIXES = [
   "/dashboard",
   "/calendar",
   "/channels",
-  "/chat",
   "/community-questions",
   "/inbox",
   "/listing",
   "/notifications",
-  "/profile",
-  "/settings",
-  "/support-chat",
   "/dev-portal",
-  "/login",
-  "/signup",
 ];
 
 function getHostParts(hostHeader: string | null): string[] {
