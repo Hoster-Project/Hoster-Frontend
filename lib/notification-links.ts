@@ -9,61 +9,110 @@ export type NotificationDto = {
   readAt: string | null;
 };
 
-function isRole(role: string | null | undefined, roles: string[]) {
-  if (!role) return false;
-  return roles.includes(role);
+type RoleBucket = "host" | "provider" | "admin" | "unknown";
+
+function roleBucket(role: string | null | undefined): RoleBucket {
+  const normalized = (role || "").trim().toLowerCase();
+  if (normalized === "host") return "host";
+  if (normalized === "provider" || normalized === "employee") return "provider";
+  if (normalized === "admin" || normalized === "moderator") return "admin";
+  return "unknown";
 }
 
-export function getNotificationHref(notif: Pick<NotificationDto, "type" | "entityType" | "entityId">, role?: string | null): string | null {
+export function getNotificationHref(
+  notif: Pick<NotificationDto, "type" | "entityType" | "entityId">,
+  role?: string | null,
+): string | null {
   const entityType = notif.entityType || null;
   const entityId = notif.entityId || null;
+  const audience = roleBucket(role);
 
   // Entity-based routing (preferred).
-  if (entityType === "conversation" && entityId) return `/chat/${entityId}`;
-  if (entityType === "reservation" && entityId) return `/calendar`;
+  if (entityType === "conversation" && entityId) {
+    return audience === "host" ? `/chat/${entityId}` : null;
+  }
+
+  if (entityType === "reservation" && entityId) {
+    return audience === "host" ? "/calendar" : null;
+  }
 
   if (entityType === "cleaning_subscription" && entityId) {
-    if (isRole(role, ["host", "admin", "moderator"])) return `/chat/provider/${entityId}?source=cleaning`;
-    if (isRole(role, ["provider", "employee"])) return `/provider?tab=chat&subscriptionId=${encodeURIComponent(entityId)}`;
-    return `/chat/provider/${entityId}?source=cleaning`;
+    if (audience === "host") return `/chat/provider/${entityId}?source=cleaning`;
+    if (audience === "provider") return `/?tab=chat&subscriptionId=${encodeURIComponent(entityId)}`;
+    return null;
   }
 
   if (entityType === "provider_chat" && entityId) {
-    // Provider company admin client chat (marketplace).
-    return `/provider?mode=company-admin&tab=clients&chatId=${encodeURIComponent(entityId)}`;
+    if (audience === "host") return `/chat/provider/${entityId}?source=marketplace`;
+    if (audience === "provider") return `/?mode=company-admin&tab=clients&chatId=${encodeURIComponent(entityId)}`;
+    return null;
   }
 
   if (entityType === "provider_request" && entityId) {
-    if (isRole(role, ["admin", "moderator"])) return `/admin/providers?tab=requests`;
-    if (isRole(role, ["provider", "employee"])) return `/provider`;
-    return `/admin/providers?tab=requests`;
+    if (audience === "admin") return "/providers?tab=requests";
+    if (audience === "provider") return "/?tab=requests";
+    return null;
   }
 
-  if (entityType === "support_thread" && entityId) {
-    if (isRole(role, ["admin", "moderator"])) return `/admin/chat`;
-    if (isRole(role, ["provider", "employee"])) return `/provider/support-chat`;
-    return `/support-chat`;
+  if (entityType === "support_thread") {
+    if (audience === "admin") return "/chat";
+    if (audience === "provider" || audience === "host") return "/support-chat";
+    return null;
   }
 
   if (entityType === "provider_task" && entityId) {
-    // Host approvals happen in Maintenance settings.
-    if (isRole(role, ["host"])) return `/settings/maintenance?taskId=${encodeURIComponent(entityId)}`;
-    if (isRole(role, ["admin", "moderator"])) return `/admin/cleaning`;
-    if (isRole(role, ["provider", "employee"])) return `/provider?tab=requests&taskId=${encodeURIComponent(entityId)}`;
-    return `/settings/maintenance?taskId=${encodeURIComponent(entityId)}`;
+    if (audience === "host") return `/settings/maintenance?taskId=${encodeURIComponent(entityId)}`;
+    if (audience === "admin") return "/cleaning";
+    if (audience === "provider") return "/?tab=marketplace";
+    return null;
   }
 
   if (entityType === "cleaning_task" && entityId) {
-    // Cleaning tasks are actionable from the host dashboard.
-    return `/dashboard?focus=cleaning-tasks&taskId=${encodeURIComponent(entityId)}`;
+    if (audience === "host") return `/dashboard?focus=cleaning-tasks&taskId=${encodeURIComponent(entityId)}`;
+    if (audience === "admin") return "/cleaning";
+    return null;
   }
 
-  // Type-based routing (fallback).
-  if (notif.type === "CHANNEL_DATA_DELETED") return `/channels`;
+  // Type-based fallback routing.
+  if (notif.type === "CHANNEL_DATA_DELETED") return audience === "host" ? "/channels" : null;
+  if (notif.type === "GUEST_MESSAGE_RECEIVED") return audience === "host" ? "/inbox" : null;
 
-  // Safe defaults per role.
-  if (isRole(role, ["admin", "moderator"])) return `/admin`;
-  if (isRole(role, ["provider", "employee"])) return `/provider`;
-  if (isRole(role, ["host"])) return `/notifications`;
+  if (notif.type === "PROVIDER_CHAT_MESSAGE") {
+    if (audience === "provider" && entityId) {
+      return `/?mode=company-admin&tab=clients&chatId=${encodeURIComponent(entityId)}`;
+    }
+    if (audience === "host" && entityId) {
+      return `/chat/provider/${entityId}?source=marketplace`;
+    }
+    return null;
+  }
+
+  if (notif.type === "PROVIDER_MESSAGE_RECEIVED" || notif.type === "HOST_MESSAGE_RECEIVED") {
+    if (audience === "provider") return "/?tab=chat";
+    if (audience === "host") return "/settings/cleaning";
+    return null;
+  }
+
+  if (
+    notif.type === "SUPPORT_MESSAGE_RECEIVED"
+    || notif.type === "SUPPORT_REPLY_RECEIVED"
+    || notif.type === "SUPPORT_REQUEST_ACCEPTED"
+  ) {
+    if (audience === "admin") return "/chat";
+    if (audience === "provider" || audience === "host") return "/support-chat";
+    return null;
+  }
+
+  if (notif.type === "MARKETPLACE_APPROVAL_REQUIRED") {
+    if (audience === "host") return "/settings/maintenance";
+    if (audience === "provider") return "/?tab=marketplace";
+    if (audience === "admin") return "/cleaning";
+    return null;
+  }
+
+  // Safe defaults per portal.
+  if (audience === "admin") return "/";
+  if (audience === "provider") return "/";
+  if (audience === "host") return "/notifications";
   return null;
 }

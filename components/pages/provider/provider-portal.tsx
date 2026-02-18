@@ -1649,6 +1649,14 @@ function ProviderDashboard({
   const initialNavApplied = useRef(false);
   const [activeTab, setActiveTab] = useState<TabId>("requests");
 
+  const redirectToCompanyClients = useCallback(() => {
+    if (!canSwitchMode || typeof window === "undefined") return;
+    const next = new URL(window.location.href);
+    next.searchParams.set("mode", "company-admin");
+    next.searchParams.set("tab", "clients");
+    window.location.assign(`${next.pathname}?${next.searchParams.toString()}`);
+  }, [canSwitchMode]);
+
   useEffect(() => {
     if (initialNavApplied.current) return;
     const tab = (searchParams.get("tab") || "").toLowerCase();
@@ -1662,11 +1670,16 @@ function ProviderDashboard({
       settings: "settings",
     };
     const next = valid[tab];
+    if (next === "chat" && canSwitchMode) {
+      initialNavApplied.current = true;
+      redirectToCompanyClients();
+      return;
+    }
     if (next) setActiveTab(next);
     initialNavApplied.current = true;
-  }, [searchParams]);
+  }, [searchParams, canSwitchMode, redirectToCompanyClients]);
 
-  const tabs: Array<{ id: TabId; label: string; icon: typeof ClipboardList }> = [
+  const baseTabs: Array<{ id: TabId; label: string; icon: typeof ClipboardList }> = [
     { id: "requests", label: "Requests", icon: ClipboardList },
     { id: "properties", label: "Properties", icon: Home },
     { id: "history", label: "History", icon: History },
@@ -1675,6 +1688,7 @@ function ProviderDashboard({
     { id: "marketplace", label: "Marketplace", icon: Briefcase },
     { id: "settings", label: "Settings", icon: Settings },
   ];
+  const tabs = canSwitchMode ? baseTabs.filter((tab) => tab.id !== "chat") : baseTabs;
   const sidebarTabs = tabs.filter((tab) => tab.id !== "settings");
   const mobileTabs = tabs.filter((tab) => tab.id !== "settings").slice(0, 6);
 
@@ -1777,7 +1791,7 @@ function ProviderDashboard({
             {activeTab === "properties" && <PropertiesTab />}
             {activeTab === "history" && <VisitHistoryTab initialListingId={null} />}
             {activeTab === "reviews" && <ReviewsTab />}
-            {activeTab === "chat" && <ChatTab />}
+            {activeTab === "chat" && !canSwitchMode && <ChatTab />}
             {activeTab === "marketplace" && <MarketplaceTab />}
             {activeTab === "settings" && <ProviderAppSettingsPage />}
           </main>

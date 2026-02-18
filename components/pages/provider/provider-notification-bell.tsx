@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Bell, Trash2, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getNotificationHref, type NotificationDto } from "@/lib/notification-links";
-import { useAuth } from "@/hooks/use-auth";
 
 type NotificationPayload = {
   notifications: NotificationDto[];
@@ -23,7 +22,6 @@ type NotificationPayload = {
 
 export default function ProviderNotificationBell() {
   const router = useRouter();
-  const { user } = useAuth();
   const { data } = useQuery<NotificationPayload>({
     queryKey: ["/api/notifications"],
     queryFn: async () => {
@@ -109,7 +107,7 @@ export default function ProviderNotificationBell() {
               className="py-2"
               onClick={() => {
                 if (!notif.readAt) markReadMutation.mutate(notif.id);
-                const href = getNotificationHref(notif, user?.role);
+                const href = getNotificationHref(notif, "provider");
                 if (href) router.push(href);
               }}
             >

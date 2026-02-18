@@ -238,7 +238,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                         className="py-2"
                         onClick={() => {
                           if (!notif.readAt) markReadMutation.mutate(notif.id);
-                          const href = getNotificationHref(notif, user?.role);
+                          const href = getNotificationHref(notif, "admin");
                           if (href) router.push(href);
                         }}
                       >
