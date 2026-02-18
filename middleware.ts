@@ -43,6 +43,18 @@ function getHostParts(hostHeader: string | null): string[] {
 function getSubdomain(hostHeader: string | null): string | null {
   const parts = getHostParts(hostHeader);
   if (parts.length < 2) return null;
+
+  // staging.hoster.tryhoster.com => hoster
+  if (parts.length >= 4 && KNOWN_PORTAL_SUBDOMAINS.has(parts[1])) {
+    return parts[1];
+  }
+
+  // hoster.tryhoster.com => hoster
+  if (parts.length >= 3 && KNOWN_PORTAL_SUBDOMAINS.has(parts[0])) {
+    return parts[0];
+  }
+
+  // staging.tryhoster.com => staging
   return parts[0] || null;
 }
 
@@ -92,6 +104,14 @@ function isHostPortalPath(pathname: string): boolean {
   return HOST_APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+function isAdminCleanPath(pathname: string): boolean {
+  return pathname === "/" || pathname === "/login" || pathname === "/admin-login";
+}
+
+function isProviderCleanPath(pathname: string): boolean {
+  return pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname === "/company-signup";
+}
+
 function stripPrefix(pathname: string, prefix: string): string {
   if (pathname === prefix) return "/";
   if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length);
@@ -99,6 +119,10 @@ function stripPrefix(pathname: string, prefix: string): string {
 }
 
 function redirectTo(req: NextRequest, pathname: string) {
+  if (req.nextUrl.pathname === pathname && req.nextUrl.search === "") {
+    return NextResponse.next();
+  }
+
   const url = req.nextUrl.clone();
   url.pathname = pathname;
   url.search = "";
@@ -108,6 +132,11 @@ function redirectTo(req: NextRequest, pathname: string) {
 function redirectToSubdomain(req: NextRequest, subdomain: string, pathname: string) {
   const portalHost = buildPortalHost(req.headers.get("host"), subdomain);
   if (!portalHost) return redirectTo(req, pathname);
+
+  const currentHost = req.nextUrl.hostname.toLowerCase();
+  if (currentHost === portalHost && req.nextUrl.pathname === pathname && req.nextUrl.search === "") {
+    return NextResponse.next();
+  }
 
   const url = req.nextUrl.clone();
   url.hostname = portalHost;
@@ -152,6 +181,9 @@ export function middleware(req: NextRequest) {
     if (pathname.startsWith("/admin")) {
       return redirectTo(req, stripPrefix(pathname, "/admin"));
     }
+    if (isAdminCleanPath(pathname)) {
+      return rewriteTo(req, toAdminInternal(pathname));
+    }
     if (isHostPortalPath(pathname)) {
       return redirectToSubdomain(req, HOST_SUBDOMAIN, pathname);
     }
@@ -164,6 +196,9 @@ export function middleware(req: NextRequest) {
     }
     if (pathname.startsWith("/provider")) {
       return redirectTo(req, stripPrefix(pathname, "/provider"));
+    }
+    if (isProviderCleanPath(pathname)) {
+      return rewriteTo(req, toProviderInternal(pathname));
     }
     if (isHostPortalPath(pathname)) {
       return redirectToSubdomain(req, HOST_SUBDOMAIN, pathname);

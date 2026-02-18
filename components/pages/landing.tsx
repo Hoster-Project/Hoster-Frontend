@@ -138,10 +138,10 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link href="/login">
+                <Link href="/login" prefetch={false}>
                   <Button variant="ghost" size="sm" data-testid="button-nav-login">Log in</Button>
                 </Link>
-                <Link href="/signup">
+                <Link href="/signup" prefetch={false}>
                   <Button size="sm" data-testid="button-nav-signup">Sign up</Button>
                 </Link>
               </>
@@ -180,7 +180,7 @@ export default function LandingPage() {
                     </Button>
                   </Link>
                 ) : (
-                  <Link href="/signup">
+                  <Link href="/signup" prefetch={false}>
                     <Button size="lg" className="px-8 text-base font-bold" data-testid="button-hero-signup">
                       Get started free
                       <ArrowRight className="ml-2 h-4 w-4" />
@@ -302,7 +302,7 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/signup">
+                  <Link href="/signup" prefetch={false}>
                     <Button
                       variant={plan.popular ? "default" : "outline"}
                       className="w-full"
@@ -330,7 +330,7 @@ export default function LandingPage() {
               <button onClick={() => scrollTo(pricingRef)} className="transition-colors" data-testid="link-footer-pricing">Pricing</button>
               <Link href="/terms" className="transition-colors hover:underline" data-testid="link-footer-terms">Terms</Link>
               <Link href="/privacy" className="transition-colors hover:underline" data-testid="link-footer-privacy">Privacy</Link>
-              <Link href="/login" className="transition-colors" data-testid="link-footer-login">Log in</Link>
+              <Link href="/login" prefetch={false} className="transition-colors" data-testid="link-footer-login">Log in</Link>
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-border text-center">
