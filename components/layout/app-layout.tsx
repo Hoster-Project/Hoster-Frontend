@@ -47,7 +47,7 @@ export default function AppLayout({
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push("/");
+      router.push("/login");
       return;
     }
 
@@ -60,7 +60,7 @@ export default function AppLayout({
         router.push("/provider");
         return;
       }
-      router.push("/");
+      router.push("/login");
     }
   }, [user, isLoading, router]);
 
