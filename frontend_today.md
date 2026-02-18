@@ -147,3 +147,25 @@
 ## ✅ التحقق (Portal Routing)
 - `npm run build` للواجهة ✅
 - سلوك التحويل/العزل يعمل حسب subdomain لكل بوابة.
+
+---
+
+## 9) Fix wrong `:3000` portal redirects on staging
+**What**
+- بعض التحويلات بعد login كانت تذهب إلى `hoster.tryhoster.com:3000` بدل نطاق staging الصحيح.
+
+**How**
+- تحديث `middleware.ts` لاستخراج `env prefix` (مثل `staging`) + `portal subdomain` + `root domain` بشكل صحيح.
+- فرض إزالة المنفذ في التحويلات عبر `url.port = ""`.
+- تحديث `role-guard.tsx` لبناء روابط absolute صحيحة على شكل:
+  - `https://staging.hoster.tryhoster.com/...`
+  - `https://staging.provider.tryhoster.com/...`
+  - `https://staging.admin.tryhoster.com/...`
+
+**Impact**
+- إلغاء تحويلات `:3000` الخاطئة واستقرار التنقل بين البوابات على روابط production الصحيحة.
+
+---
+
+## ✅ التحقق (Redirect Host Fix)
+- `npm run build` ✅
