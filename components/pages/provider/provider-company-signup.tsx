@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getLandingUrl } from "@/lib/portal-urls";
 
 type SignupPayload = {
   firstName: string;
@@ -34,6 +35,7 @@ export default function ProviderCompanySignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const landingHref = useMemo(() => getLandingUrl(), []);
   const [form, setForm] = useState<SignupPayload>({
     firstName: "",
     lastName: "",
@@ -100,7 +102,7 @@ export default function ProviderCompanySignupPage() {
       <div className="w-full max-w-xl">
         <div className="mb-2">
           <Button variant="ghost" size="sm" className="-ml-2" asChild>
-            <Link href="/provider/login">
+            <Link href={landingHref} prefetch={false}>
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               Back
             </Link>

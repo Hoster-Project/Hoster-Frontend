@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { getLandingUrl } from "@/lib/portal-urls";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ export default function ProviderLoginPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const landingHref = useMemo(() => getLandingUrl(), []);
 
   useEffect(() => {
     if (!user || isLoading) return;
@@ -75,7 +77,7 @@ export default function ProviderLoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-2">
           <Button variant="ghost" size="sm" className="-ml-2" asChild>
-            <Link href="/" data-testid="link-provider-back-home">
+            <Link href={landingHref} data-testid="link-provider-back-home" prefetch={false}>
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               Back
             </Link>

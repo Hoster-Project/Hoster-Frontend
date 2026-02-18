@@ -1,22 +1,23 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getLandingUrl } from "@/lib/portal-urls";
 
 function VerifyEmailInner() {
   const params = useSearchParams();
   const token = params.get("token") || "";
-  const router = useRouter();
   const { toast } = useToast();
 
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState<string>("");
   const [resending, setResending] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const landingHref = useMemo(() => getLandingUrl(), []);
 
   async function logoutAndGoHome() {
     try {
@@ -30,7 +31,7 @@ function VerifyEmailInner() {
       queryClient.removeQueries({ queryKey: ["/api/auth/user"] });
       queryClient.clear();
       setLoggingOut(false);
-      window.location.href = "/";
+      window.location.href = landingHref;
     }
   }
 
@@ -113,7 +114,7 @@ function VerifyEmailInner() {
           <Button variant="secondary" onClick={logoutAndGoHome} disabled={loggingOut} data-testid="button-go-login">
             {loggingOut ? "Logging out..." : "Go home"}
           </Button>
-          <Button onClick={() => router.push("/")} data-testid="button-go-home">
+          <Button onClick={() => window.location.assign(landingHref)} data-testid="button-go-home">
             Home
           </Button>
         </div>

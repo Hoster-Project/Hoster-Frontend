@@ -11,6 +11,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { getLandingUrl } from "@/lib/portal-urls";
 import { COUNTRIES } from "@/lib/countries";
 
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ export default function SignupPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const landingHref = useMemo(() => getLandingUrl(), []);
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -164,7 +166,7 @@ export default function SignupPage() {
       <div className="w-full max-w-sm">
         <div className="mb-2">
           <Button variant="ghost" size="sm" className="-ml-2" asChild>
-            <Link href="/" data-testid="link-back-landing">
+            <Link href={landingHref} data-testid="link-back-landing" prefetch={false}>
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               Back
             </Link>

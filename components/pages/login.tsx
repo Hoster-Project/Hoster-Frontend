@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Eye, EyeOff, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
+import { getLandingUrl } from "@/lib/portal-urls";
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
 import * as Yup from "yup";
 
@@ -29,6 +29,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const landingHref = useMemo(() => getLandingUrl(), []);
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -77,7 +78,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-2">
           <Button variant="ghost" size="sm" className="-ml-2" asChild>
-            <Link href="/" data-testid="link-back-landing">
+            <Link href={landingHref} data-testid="link-back-landing" prefetch={false}>
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               Back
             </Link>
