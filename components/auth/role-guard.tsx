@@ -10,6 +10,52 @@ interface RoleGuardProps {
   allowedRoles: string[]; // e.g., ['admin', 'moderator']
 }
 
+function getBaseDomainFromHostname(hostname: string): string | null {
+  const parts = hostname.split(".");
+  if (parts.length < 3) return null;
+  return parts.slice(1).join(".");
+}
+
+function roleHomePath(role: string): string {
+  if (role === "admin" || role === "moderator") return "/";
+  if (role === "provider" || role === "employee") return "/";
+  return "/dashboard";
+}
+
+function roleSubdomain(role: string): string | null {
+  const adminSub = process.env.NEXT_PUBLIC_PORTAL_ADMIN_SUBDOMAIN || "admin";
+  const providerSub = process.env.NEXT_PUBLIC_PORTAL_PROVIDER_SUBDOMAIN || "provider";
+  const hostSub = process.env.NEXT_PUBLIC_PORTAL_HOST_SUBDOMAIN || "hoster";
+
+  if (role === "admin" || role === "moderator") return adminSub;
+  if (role === "provider" || role === "employee") return providerSub;
+  if (role === "host") return hostSub;
+  return null;
+}
+
+function redirectToRolePortal(role: string): string {
+  if (typeof window === "undefined") {
+    return role === "host" ? "/dashboard" : "/";
+  }
+
+  const sub = roleSubdomain(role);
+  const base = getBaseDomainFromHostname(window.location.hostname);
+  const path = roleHomePath(role);
+
+  if (!sub || !base) {
+    if (role === "admin" || role === "moderator") return "/admin";
+    if (role === "provider" || role === "employee") return "/provider";
+    return "/dashboard";
+  }
+
+  const protocol = window.location.protocol || "https:";
+  return `${protocol}//${sub}.${base}${path}`;
+}
+
+function loginPathForAllowedRoles(): string {
+  return "/login";
+}
+
 export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -25,19 +71,15 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
       }
 
       if (!allowedRoles.includes(user.role)) {
-        // Logged in but wrong role
-        if (user.role === "admin" && !window.location.pathname.startsWith("/admin")) {
-          router.push("/admin");
-        } else if ((user.role === "provider" || user.role === "employee") && !window.location.pathname.startsWith("/provider")) {
-          router.push("/provider");
-        } else if (user.role === "host" && !window.location.pathname.startsWith("/dashboard")) {
-          router.push("/dashboard");
+        const target = redirectToRolePortal(user.role);
+        if (/^https?:\/\//i.test(target)) {
+          window.location.assign(target);
+        } else {
+          router.push(target);
         }
-        // If none of the above match, or if they are already on the target page but still don't have access,
-        // we do NOT redirect to avoid loops. We let the component render the "Unauthorized" state below.
       }
     } else if (!isLoading && !user) {
-       router.push("/");
+      router.push(loginPathForAllowedRoles());
     }
   }, [user, isLoading, router, allowedRoles]);
 
@@ -49,7 +91,6 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     );
   }
 
-  // Prevent flash of unauthorized content while redirecting
   const verified = Boolean(user?.emailVerified) || Boolean(user?.emailVerifiedAt);
   if (!user || !verified || !allowedRoles.includes(user.role)) {
     return (

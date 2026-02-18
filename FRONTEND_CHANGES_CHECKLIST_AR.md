@@ -191,6 +191,17 @@
 - **How:** تحديث copy داخل `client/components/pages/settings-automation.tsx`.
 - **Why/Impact:** توحيد ما يعرضه الـ UI مع سلوك السيرفر لتقليل الالتباس.
 
+
+---
+
+## Session 17 — Split Repo Docker Deploy (18 Feb 2026)
+- **What:** تشغيل الواجهة من ريبـو مستقل ضمن stack واحد (backend compose) على Staging.
+- **How:**
+  - Dockerfile للواجهة أصبح standalone (Next.js في root) بدل monorepo layout.
+  - إضافة/تضمين `shared/` داخل ريبـو الواجهة لحل `@shared/*` أثناء build داخل Docker.
+  - تعطيل `npm prune --omit=dev` في runtime image لتفادي فشل `next start` بسبب `@next/bundle-analyzer` في `next.config.js`.
+- **Why/Impact:** بناء وتشغيل مستقر داخل Docker على السيرفر بدون تعديلات يدوية بعد pull.
+
 ---
 
 ## Appendix — Full Sync From frontend_today.md (2026-02-17)
@@ -825,3 +836,21 @@
 
 ### Impact
 - الرسائل تظهر فوراً للمرسل في كل واجهات الشات بدون انتظار refetch، مع الحفاظ على تزامن نهائي مع السيرفر وRealtime.
+
+---
+
+## 🧾 تحديثات اليوم — 18 فبراير 2026 (Portal Clean URLs + Subdomain Isolation)
+### Domain-first routing
+- (39) تحويل التوجيه ليعتمد على subdomain أولاً، مع إبقاء landing على `staging.tryhoster.com`.
+- (40) دعم روابط Admin النظيفة (`/login`, `/users`, `/settings`) على `staging.admin.tryhoster.com` عبر rewrite داخلي.
+- (41) دعم روابط Provider النظيفة (`/login`, `/signup`, `/company-signup`, `/settings`) على `staging.provider.tryhoster.com` عبر rewrite داخلي.
+- (42) دعم روابط Host النظيفة على `staging.hoster.tryhoster.com` مع تحويل `/` إلى `/dashboard`.
+- (43) إعادة توجيه أي محاولة دخول لبوابة خاطئة إلى subdomain الصحيح بدل إبقائها داخل نفس النطاق.
+- (44) تحديث `RoleGuard` لتوجيه غير المصرّح/اختلاف الدور إلى subdomain الصحيح لمنع حلقات redirect.
+- (45) تحديث `app/admin/layout.tsx` و`app/provider/layout.tsx` لقبول public auth paths النظيفة.
+
+### Verification
+- `npm run build` ✅
+
+### Impact
+- URLs الإنتاج أصبحت domain-based بالكامل، مع عزل صارم بين بوابة Admin/Provider/Host وUX متسق في تسجيل الدخول.

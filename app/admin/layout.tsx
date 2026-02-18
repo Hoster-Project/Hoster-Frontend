@@ -7,7 +7,10 @@ import { usePathname } from 'next/navigation';
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublicAdminRoute =
-    pathname === '/admin/login' || pathname === '/admin/admin-login';
+    pathname === '/login' ||
+    pathname === '/admin/login' ||
+    pathname === '/admin-login' ||
+    pathname === '/admin/admin-login';
   const allowedRoles = ['admin', 'moderator'];
 
   if (isPublicAdminRoute) {

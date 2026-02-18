@@ -100,6 +100,50 @@
 
 ---
 
+## 7) مواءمة Docker Deploy مع Split Repos (Staging)
+**What**
+- تثبيت بناء وتشغيل الواجهة من ريبـو مستقل ضمن Docker Compose الخاص بالباكند.
+
+**How**
+- تحديث Dockerfile ليعمل مع Next.js repo standalone (بدون مجلد `client/`).
+- ضمان وجود مجلد `shared/` داخل ريبـو الواجهة لحل imports مثل `@shared/schema`.
+- إزالة `npm prune --omit=dev` من runtime image لأن `next.config.js` يعتمد على `@next/bundle-analyzer` عند التشغيل.
+
+**Impact**
+- بناء وتشغيل الواجهة داخل Docker يعمل بشكل ثابت على السيرفر (Next build + Next start).
+
+---
+
 ## ✅ التحقق
 - `cd client && npm run build` تم بنجاح بعد كل تعديلات الشات.
 
+
+---
+
+## 8) Subdomain Clean URLs + Portal Isolation (Staging)
+**What**
+- اعتماد مسارات نظيفة لكل بوابة حسب الـ subdomain بدون الحاجة لـ `/admin/*` أو `/provider/*` في الرابط العام.
+
+**How**
+- تحديث `middleware.ts` لعمل:
+  - `rewrite` داخلي داخل نفس البوابة (مثال: `staging.admin.tryhoster.com/login` -> route داخلي admin login).
+  - `redirect` بين البوابات عند محاولة الوصول لمسارات بوابة أخرى.
+  - `redirect` من root domain إلى subdomain الصحيح عند فتح مسارات البوابات.
+- تحديث `RoleGuard` ليحوّل المستخدم غير المصرّح/خطأ الدور إلى subdomain الصحيح بدل loop داخل نفس النطاق.
+- تحديث layouts:
+  - `app/admin/layout.tsx`
+  - `app/provider/layout.tsx`
+  لدعم public auth paths النظيفة (`/login`, `/signup`, `/company-signup`) على subdomain المخصص.
+
+**Impact**
+- الروابط النهائية أصبحت بالشكل المطلوب:
+  - `staging.admin.tryhoster.com/login`
+  - `staging.provider.tryhoster.com/login`
+  - `staging.hoster.tryhoster.com/login`
+- عزل واضح بين البوابات ومنع الوصول العرضي لبوابة مختلفة بنفس النطاق.
+
+---
+
+## ✅ التحقق (Portal Routing)
+- `npm run build` للواجهة ✅
+- سلوك التحويل/العزل يعمل حسب subdomain لكل بوابة.

@@ -9,9 +9,12 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   useRealtimeSocket();
 
   const isProviderAuthPath =
-    pathname === "/provider/login" ||
-    pathname === "/provider/signup" ||
-    pathname === "/provider/company-signup";
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname === '/company-signup' ||
+    pathname === '/provider/login' ||
+    pathname === '/provider/signup' ||
+    pathname === '/provider/company-signup';
 
   if (isProviderAuthPath) {
     return <>{children}</>;
