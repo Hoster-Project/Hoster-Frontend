@@ -30,7 +30,7 @@
         "./assets/*"
       ],
       "@shared/*": [
-        "../shared/*"
+        "./shared/*"
       ]
     },
     "target": "ES2017"
@@ -38,7 +38,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "../shared/**/*.ts",
+    "shared/**/*.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts"
   ],
