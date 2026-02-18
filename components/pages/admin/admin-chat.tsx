@@ -98,10 +98,33 @@ export default function AdminChat() {
       const res = await apiRequest("POST", `/api/admin/support-threads/${userId}/send`, { body });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-threads", selectedSupportUserId, "messages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-threads"] });
+    onMutate: async ({ userId, body }) => {
+      const queryKey = ["/api/admin/support-threads", userId, "messages"] as const;
+      await queryClient.cancelQueries({ queryKey });
+      const previousMessages = queryClient.getQueryData<ChatMessage[]>(queryKey) || [];
+      const optimistic: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        direction: "OUTBOUND",
+        body,
+        sentAt: new Date().toISOString(),
+      };
+      queryClient.setQueryData<ChatMessage[]>(queryKey, [...previousMessages, optimistic]);
       setMessageText("");
+      return { previousMessages, queryKey, optimisticId: optimistic.id };
+    },
+    onError: (_error, _vars, context) => {
+      if (!context) return;
+      queryClient.setQueryData(context.queryKey, context.previousMessages);
+    },
+    onSuccess: (saved, _vars, context) => {
+      if (!context) return;
+      queryClient.setQueryData<ChatMessage[]>(context.queryKey, (current = []) =>
+        current.map((m) => (m.id === context.optimisticId ? saved : m)),
+      );
+    },
+    onSettled: (_saved, _error, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-threads", vars.userId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-threads"] });
     },
   });
 

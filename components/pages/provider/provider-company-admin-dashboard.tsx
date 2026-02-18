@@ -468,14 +468,32 @@ export default function ProviderCompanyAdminDashboard({
       const res = await apiRequest("POST", `/api/provider-chats/${payload.chatId}/messages`, { body: payload.body });
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async (payload) => {
+      const queryKey = ["/api/provider-chats", payload.chatId, "messages"] as const;
+      await qc.cancelQueries({ queryKey });
+      const previousMessages = qc.getQueryData<ProviderChatMessage[]>(queryKey) || [];
+      const optimistic: ProviderChatMessage = {
+        id: `temp-${Date.now()}`,
+        chatId: payload.chatId,
+        senderId: user.id,
+        senderName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "You",
+        messageText: payload.body,
+        sentAt: new Date().toISOString(),
+      };
+      qc.setQueryData<ProviderChatMessage[]>(queryKey, [...previousMessages, optimistic]);
       setChatMessage("");
-      qc.invalidateQueries({ queryKey: ["/api/provider-chats", selectedClientChat?.chatId, "messages"] });
+      return { previousMessages, queryKey };
+    },
+    onError: (err: Error, _payload, context) => {
+      if (context) {
+        qc.setQueryData(context.queryKey, context.previousMessages);
+      }
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    },
+    onSettled: (_saved, _error, payload) => {
+      qc.invalidateQueries({ queryKey: ["/api/provider-chats", payload.chatId, "messages"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/clients"] });
       qc.invalidateQueries({ queryKey: ["/api/notifications"] });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Send failed", description: err.message, variant: "destructive" });
     },
   });
 

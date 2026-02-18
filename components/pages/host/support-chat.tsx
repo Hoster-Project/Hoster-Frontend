@@ -35,9 +35,32 @@ export default function SupportChatPage() {
       const res = await apiRequest("POST", "/api/support/send", { body });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/support/messages"] });
+    onMutate: async (body: string) => {
+      const queryKey = ["/api/support/messages"] as const;
+      await queryClient.cancelQueries({ queryKey });
+      const previousMessages = queryClient.getQueryData<ChatMsg[]>(queryKey) || [];
+      const optimistic: ChatMsg = {
+        id: `temp-${Date.now()}`,
+        direction: "INBOUND",
+        body,
+        sentAt: new Date().toISOString(),
+      };
+      queryClient.setQueryData<ChatMsg[]>(queryKey, [...previousMessages, optimistic]);
       setChatMessage("");
+      return { previousMessages, queryKey, optimisticId: optimistic.id };
+    },
+    onError: (_error, _body, context) => {
+      if (!context) return;
+      queryClient.setQueryData(context.queryKey, context.previousMessages);
+    },
+    onSuccess: (saved, _body, context) => {
+      if (!context) return;
+      queryClient.setQueryData<ChatMsg[]>(context.queryKey, (current = []) =>
+        current.map((m) => (m.id === context.optimisticId ? saved : m)),
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/support/messages"] });
     },
   });
 

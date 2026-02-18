@@ -1215,15 +1215,34 @@ function ChatThread({ sub, onBack }: { sub: Subscription; onBack: () => void }) 
   });
 
   const sendMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", `/api/provider/messages/${sub.id}`, { body });
+    mutationFn: async (text: string) => {
+      const res = await apiRequest("POST", `/api/provider/messages/${sub.id}`, { body: text });
+      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/provider/messages", sub.id] });
+    onMutate: async (text: string) => {
+      const queryKey = ["/api/provider/messages", sub.id] as const;
+      await queryClient.cancelQueries({ queryKey });
+      const previousMessages = queryClient.getQueryData<Message[]>(queryKey) || [];
+      const optimistic: Message = {
+        id: `temp-${Date.now()}`,
+        subscriptionId: sub.id,
+        senderId: "me",
+        senderType: "PROVIDER",
+        body: text,
+        sentAt: new Date().toISOString(),
+      };
+      queryClient.setQueryData<Message[]>(queryKey, [...previousMessages, optimistic]);
       setBody("");
+      return { previousMessages, queryKey };
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _text, context) => {
+      if (context) {
+        queryClient.setQueryData(context.queryKey, context.previousMessages);
+      }
       toast({ title: "Failed to send", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/provider/messages", sub.id] });
     },
   });
 
@@ -1286,7 +1305,8 @@ function ChatThread({ sub, onBack }: { sub: Subscription; onBack: () => void }) 
           className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (body.trim()) sendMutation.mutate();
+            const trimmed = body.trim();
+            if (trimmed) sendMutation.mutate(trimmed);
           }}
         >
           <Input

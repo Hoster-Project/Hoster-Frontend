@@ -257,9 +257,28 @@ export default function SettingsCleaningPage() {
       const res = await apiRequest("POST", `/api/cleaning/messages/${subscriptionId}`, { body });
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/cleaning/messages", selectedSub?.id] });
+    onMutate: async ({ subscriptionId, body }) => {
+      const queryKey = ["/api/cleaning/messages", subscriptionId] as const;
+      await qc.cancelQueries({ queryKey });
+      const previousMessages = qc.getQueryData<ChatMessage[]>(queryKey) || [];
+      const optimistic: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        subscriptionId,
+        senderId: "me",
+        senderType: "HOST",
+        body,
+        sentAt: new Date().toISOString(),
+      };
+      qc.setQueryData<ChatMessage[]>(queryKey, [...previousMessages, optimistic]);
       setChatInput("");
+      return { previousMessages, queryKey };
+    },
+    onError: (_error, _vars, context) => {
+      if (!context) return;
+      qc.setQueryData(context.queryKey, context.previousMessages);
+    },
+    onSettled: (_saved, _error, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/cleaning/messages", vars.subscriptionId] });
     },
   });
 
@@ -878,7 +897,7 @@ export default function SettingsCleaningPage() {
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && chatInput.trim() && selectedSub) {
-                    sendMessageMutation.mutate({ subscriptionId: selectedSub.id, body: chatInput });
+                    sendMessageMutation.mutate({ subscriptionId: selectedSub.id, body: chatInput.trim() });
                   }
                 }}
                 data-testid="input-chat-message"
@@ -889,7 +908,7 @@ export default function SettingsCleaningPage() {
                 disabled={!chatInput.trim() || sendMessageMutation.isPending}
                 onClick={() => {
                   if (chatInput.trim() && selectedSub) {
-                    sendMessageMutation.mutate({ subscriptionId: selectedSub.id, body: chatInput });
+                    sendMessageMutation.mutate({ subscriptionId: selectedSub.id, body: chatInput.trim() });
                   }
                 }}
                 data-testid="button-send-chat"

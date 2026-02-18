@@ -808,3 +808,20 @@
 
 ### Backend-only encryption update
 - (32) لا تغييرات على الواجهة في دفعة تشفير الرسائل (Backend-only).
+
+---
+
+## 🧾 تحديثات اليوم — 18 فبراير 2026 (Chat Optimistic UI + Sender-First UX)
+### Chat send latency fix across portals
+- (33) إصلاح تأخير ظهور رسالة المرسل في `Admin Support Chat` عبر optimistic message + rollback + reconcile.
+- (34) إصلاح تأخير شات الضيوف في بوابة المضيف (`/api/chat/:id/send`) مع حالة `sending` ثم `sent`.
+- (35) تطبيق نفس السلوك في Support Chat للمضيف والمزوّد.
+- (36) تطبيق optimistic updates في شات المزود داخل Inbox المضيف (مصدر cleaning + marketplace).
+- (37) تطبيق optimistic updates في شات المزوّد داخل `Provider Portal` و`Company Admin Dashboard`.
+- (38) تطبيق optimistic updates في شات التنظيف داخل `host/settings-cleaning`.
+
+### Verification
+- `npm --prefix client run build` ✅
+
+### Impact
+- الرسائل تظهر فوراً للمرسل في كل واجهات الشات بدون انتظار refetch، مع الحفاظ على تزامن نهائي مع السيرفر وRealtime.

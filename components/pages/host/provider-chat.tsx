@@ -50,15 +50,45 @@ export default function ProviderChatPage({ threadId }: { threadId: string }) {
   });
 
   const sendMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (text: string) => {
       const url =
         source === "marketplace"
           ? `/api/provider-chats/${threadId}/messages`
           : `/api/cleaning/messages/${threadId}`;
-      await apiRequest("POST", url, { body: body.trim() });
+      const res = await apiRequest("POST", url, { body: text });
+      return res.json();
     },
-    onSuccess: () => {
+    onMutate: async (text: string) => {
+      const queryKey = ["/api/provider-thread", source, threadId] as const;
+      await queryClient.cancelQueries({ queryKey });
+      const previousMessages =
+        queryClient.getQueryData<CleaningMessage[] | MarketplaceMessage[]>(queryKey) || [];
+      const now = new Date().toISOString();
+      const optimistic =
+        source === "marketplace"
+          ? {
+              id: `temp-${Date.now()}`,
+              senderId: user?.id || "me",
+              senderName: user?.firstName || "You",
+              messageText: text,
+              sentAt: now,
+            }
+          : {
+              id: `temp-${Date.now()}`,
+              senderId: user?.id || "me",
+              senderType: "HOST" as const,
+              body: text,
+              sentAt: now,
+            };
+      queryClient.setQueryData(queryKey, [...previousMessages, optimistic]);
       setBody("");
+      return { previousMessages, queryKey };
+    },
+    onError: (_error, _text, context) => {
+      if (!context) return;
+      queryClient.setQueryData(context.queryKey, context.previousMessages);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/provider-thread", source, threadId] });
       queryClient.invalidateQueries({ queryKey: ["/api/inbox/providers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
@@ -135,7 +165,8 @@ export default function ProviderChatPage({ threadId }: { threadId: string }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (body.trim()) sendMutation.mutate();
+              const trimmed = body.trim();
+              if (trimmed) sendMutation.mutate(trimmed);
             }
           }}
           data-testid="input-provider-chat-message"
@@ -143,7 +174,10 @@ export default function ProviderChatPage({ threadId }: { threadId: string }) {
         <Button
           size="icon"
           aria-label="Send message"
-          onClick={() => sendMutation.mutate()}
+          onClick={() => {
+            const trimmed = body.trim();
+            if (trimmed) sendMutation.mutate(trimmed);
+          }}
           disabled={!body.trim() || sendMutation.isPending}
           data-testid="button-send-provider-chat"
         >

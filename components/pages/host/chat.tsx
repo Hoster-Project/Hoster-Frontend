@@ -117,20 +117,63 @@ export default function ChatPage({ conversationId }: { conversationId: string })
 
  const sendMutation = useMutation({
  mutationFn: async (body: string) => {
- await apiRequest("POST", `/api/chat/${conversationId}/send`, { body });
+ const res = await apiRequest("POST", `/api/chat/${conversationId}/send`, { body });
+ return res.json();
  },
- onSuccess: () => {
- setMessage("");
- queryClient.invalidateQueries({
- queryKey: ["/api/chat", conversationId],
+ onMutate: async (body: string) => {
+ const queryKey = ["/api/chat", conversationId] as const;
+ await queryClient.cancelQueries({ queryKey });
+ const previousData = queryClient.getQueryData<ChatData>(queryKey);
+ const optimistic = {
+ id: `temp-${Date.now()}`,
+ direction: "OUTBOUND" as const,
+ body,
+ sentAt: new Date().toISOString(),
+ status: "sending" as const,
+ };
+ queryClient.setQueryData<ChatData>(queryKey, (current) => {
+ if (!current) return current;
+ return {
+ ...current,
+ messages: [...current.messages, optimistic],
+ };
  });
- queryClient.invalidateQueries({ queryKey: ["/api/inbox"] });
+ setMessage("");
+ return { previousData, queryKey, optimisticId: optimistic.id };
  },
- onError: () => {
+ onError: (_err, _body, context) => {
+ if (context?.previousData) {
+ queryClient.setQueryData(context.queryKey, context.previousData);
+ }
  toast({
  title: "Failed to send message",
  variant: "destructive",
  });
+ },
+ onSuccess: (saved, _body, context) => {
+ if (!context) return;
+ queryClient.setQueryData<ChatData>(context.queryKey, (current) => {
+ if (!current) return current;
+ return {
+ ...current,
+ messages: current.messages.map((m) =>
+ m.id === context.optimisticId
+ ? {
+ ...m,
+ ...saved,
+ status: "sent" as const,
+ sentAt: saved?.sentAt || m.sentAt,
+ }
+ : m,
+ ),
+ };
+ });
+ },
+ onSettled: () => {
+ queryClient.invalidateQueries({
+ queryKey: ["/api/chat", conversationId],
+ });
+ queryClient.invalidateQueries({ queryKey: ["/api/inbox"] });
  },
  });
 
