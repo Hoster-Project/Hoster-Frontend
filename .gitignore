@@ -29,5 +29,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 # Local docs (not tracked)
-frontend_today.md
-FRONTEND_CHANGES_CHECKLIST_AR.md
+# frontend_today.md
+# FRONTEND_CHANGES_CHECKLIST_AR.md

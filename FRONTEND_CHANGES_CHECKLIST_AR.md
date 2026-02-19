@@ -4,6 +4,105 @@
 
 ---
 
+## 0) Impact Summary (ملخص الأثر)
+| المحور | الملخص | نوع الأثر |
+| :--- | :--- | :--- |
+| التحول إلى Next.js | رفع قابلية الأرشفة وتحسين تجربة التحميل والصور | Optimization |
+| Auth/Verification Guards | منع الدخول غير الموثق وتقليل حلقات إعادة التوجيه | Feature Addition + Security |
+| تحسينات UX متعددة (Mobile/Chat/Forms) | تقليل الأعطال البصرية وتحسين سلاسة الاستخدام عبر البوابات | Optimization |
+| Marketplace + Events + Channel Assets | إضافة قدرات عملية جديدة للمضيف/المزوّد/الإدارة | Feature Addition |
+| Split-repo Docker Deploy | توحيد سلوك البناء بين المحلي والسيرفر وتقليل التدخل اليدوي | Optimization (DevOps) |
+
+## 0.1) Structured Checklist (سبب / أثر / تصنيف)
+> هذا القسم هو النسخة المعيارية السريعة. التفاصيل التاريخية الكاملة محفوظة في الأقسام التالية.
+
+1. **الانتقال إلى Next.js**
+- **لماذا حدث؟** لتحسين SEO والأداء والاستفادة من App Router وSSR/SSG.
+- **الأثر:** صفحات أسرع وأكثر قابلية للأرشفة مع بنية تنظيمية أفضل.
+- **التصنيف:** Optimization + Architecture Upgrade.
+
+2. **QA بعد الهجرة**
+- **لماذا حدث؟** لتصفير أخطاء الأنواع والبناء بعد التحول.
+- **الأثر:** ثبات أعلى أثناء البناء والتشغيل.
+- **التصنيف:** Stability Optimization.
+
+3. **System Integration & Routing Fixes**
+- **لماذا حدث؟** لتوحيد التوجيه والاتصال بالـ API دون مشاكل CORS.
+- **الأثر:** تسجيل دخول وتنقل أكثر موثوقية.
+- **التصنيف:** Bug Fix + Optimization.
+
+4. **Phase 3/4 (Admin + SEO + Performance)**
+- **لماذا حدث؟** لاستكمال جاهزية لوحة الإدارة وتحسين الظهور بمحركات البحث.
+- **الأثر:** ميزات إدارية أوسع وتحسن التحميل/الفهرسة.
+- **التصنيف:** Feature Addition + Optimization.
+
+5. **SSR Fixes & Security**
+- **لماذا حدث؟** لإزالة تعارضات Server Components وتطبيق حماية الأدوار.
+- **الأثر:** تقليل أخطاء SSR ومنع الوصول غير المصرح.
+- **التصنيف:** Security Feature + Stability Fix.
+
+6. **Mobile Responsiveness**
+- **لماذا حدث؟** لوجود مشاكل عرض على الشاشات الصغيرة.
+- **الأثر:** تجربة جوال أكثر اتساقًا وقابلية استخدام أفضل.
+- **التصنيف:** UX Optimization.
+
+7. **Image Integration**
+- **لماذا حدث؟** لضبط تحميل وعرض الصور من السيرفر بشكل صحيح.
+- **الأثر:** رفع/عرض صور أكثر استقرارًا وتقليل فشل التحميل.
+- **التصنيف:** Optimization.
+
+8. **Implementation Sessions (16 Feb)**
+- **لماذا حدث؟** لتجميع تحسينات UX والـ verification والأحداث والروتين التشغيلي.
+- **الأثر:** تقليل loops وتحسين الاعتمادية اليومية للتطبيق.
+- **التصنيف:** Mixed (Feature Addition + Optimization + Fixes).
+
+9. **Email Verification UX**
+- **لماذا حدث؟** لمنع التدفقات غير الواضحة بعد التسجيل.
+- **الأثر:** رحلة تحقق بريد واضحة بدون ارتباك.
+- **التصنيف:** Security/UX Feature.
+
+10. **Calendar + Currency + Chat polish**
+- **لماذا حدث؟** لتوحيد سلوك التقويم والعرض النقدي وتجربة المحادثة.
+- **الأثر:** واجهة أكثر اتساقًا وسهولة في الاستخدام.
+- **التصنيف:** UX Optimization.
+
+11. **Legal Pages + Auth Polish**
+- **لماذا حدث؟** لتحويل الصفحات القانونية إلى روابط حقيقية قابلة للمشاركة.
+- **الأثر:** امتثال وتجربة أكثر وضوحًا للمستخدم.
+- **التصنيف:** Feature Addition.
+
+12. **Admin Login Routing + Setup UI**
+- **لماذا حدث؟** لمنع حبس صفحة دخول الإدارة وتقليل مخاطر setup في الإنتاج.
+- **الأثر:** دخول إداري أكثر أمانًا ووضوحًا.
+- **التصنيف:** Security + Routing Fix.
+
+13. **Channel Icons (Assets)**
+- **لماذا حدث؟** لتحسين جودة المظهر واستخدام أصول رسمية.
+- **الأثر:** تجربة بصرية أكثر احترافية.
+- **التصنيف:** UI Enhancement (Optimization).
+
+14. **Upcoming Events (Real Data)**
+- **لماذا حدث؟** لاستبدال البيانات الوهمية ببيانات فعلية من API.
+- **الأثر:** قيمة أعلى للمضيف وربط مباشر بالموقع.
+- **التصنيف:** Feature Addition.
+
+15. **Email Verification (No Loops)**
+- **لماذا حدث؟** لمعالجة حلقات redirect بين login/verify.
+- **الأثر:** تدفق مصادقة مستقر ومفهوم.
+- **التصنيف:** Bug Fix + Security UX.
+
+16. **Automation Copy Alignment**
+- **لماذا حدث؟** لتطابق النص الظاهر مع سلوك السيرفر.
+- **الأثر:** تقليل الالتباس وتقليل دعم المستخدم.
+- **التصنيف:** UX Optimization.
+
+17. **Split Repo Docker Deploy**
+- **لماذا حدث؟** لتوحيد النشر في بنية repos منفصلة.
+- **الأثر:** build/release أكثر ثباتًا على السيرفر.
+- **التصنيف:** DevOps Optimization.
+
+---
+
 ## 1) الانتقال إلى Next.js (التحديث الأساسي)
 ### لماذا هذا التحول؟
 | الميزة | التأثير |
@@ -868,3 +967,17 @@
 
 ### Impact
 - انتهاء خطأ `ERR_CONNECTION_REFUSED` الناتج عن تحويلات `hoster.tryhoster.com:3000`.
+
+---
+
+## Session 18 — Message Notification Routing + Company Admin Chat De-dup (18 Feb 2026)
+- **What:** تدقيق كامل لمسارات إشعارات الرسائل + منع ازدواج غرف الدردشة عند حسابات الشركة التي تملك وضع العامل ووضع الإدارة.
+- **How:**
+  - تحديث `lib/notification-links.ts` لربط `entityType` و`type` بمسارات نظيفة حسب الدور/البوابة (`host` / `provider` / `admin`).
+  - تثبيت role المستخدم داخل click handlers:
+    - `components/pages/admin/admin-layout.tsx` يستخدم `admin`.
+    - `components/pages/provider/provider-notification-bell.tsx` يستخدم `provider`.
+  - تحديث `components/pages/provider/provider-portal.tsx` لإخفاء تبويب `Chat` في worker mode عندما الحساب قابل للتحويل إلى company-admin، مع تحويل deep-link `tab=chat` إلى `mode=company-admin&tab=clients`.
+- **Why/Impact:**
+  - منع redirect/logout behavior الناتج عن مسارات إشعارات خاطئة.
+  - توحيد نقطة دخول محادثات العملاء لحسابات company-admin ومنع مسارين مختلفين لنفس المحادثة.

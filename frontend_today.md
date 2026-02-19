@@ -169,3 +169,45 @@
 
 ## ✅ التحقق (Redirect Host Fix)
 - `npm run build` ✅
+
+---
+
+## 10) تدقيق وتوحيد إعادة التوجيه لكل أنواع إشعارات الرسائل
+**What**
+- كانت بعض أنواع الإشعارات تُعيد المستخدم لمسارات غير مناسبة للدور الحالي، ما يسبب انتقالات خاطئة أو خروجاً ظاهرياً.
+
+**How**
+- تحديث:
+  - `lib/notification-links.ts`
+  - `components/pages/admin/admin-layout.tsx`
+  - `components/pages/provider/provider-notification-bell.tsx`
+- اعتماد تصنيف دور واضح (`host` / `provider` / `admin`) داخل دالة routing.
+- ربط `entityType` و`type` بمسارات نظيفة بحسب البوابة الحالية فقط.
+- تثبيت دور التنقل عند الضغط على الإشعار:
+  - admin notifications تستخدم `"admin"`.
+  - provider notifications تستخدم `"provider"`.
+
+**Impact**
+- التنقل من الإشعارات أصبح متسقاً مع الدور والبوابة، بدون قفزات غير مقصودة بين البوابات.
+
+---
+
+## 11) حل ازدواج غرف الدردشة لحساب Company Admin (وضع العامل vs وضع الإدارة)
+**What**
+- حسابات الشركة التي تملك وضعين (worker + company-admin) كانت تستطيع فتح الشات من وضع العامل ومن لوحة الإدارة، ما يؤدي لظهور غرفتين منفصلتين بنفس اسم العميل.
+
+**How**
+- تحديث:
+  - `components/pages/provider/provider-portal.tsx`
+- عند وجود `canSwitchMode=true`:
+  - إزالة تبويب `Chat` من واجهة worker mode.
+  - تحويل أي deep-link يحتوي `?tab=chat` تلقائياً إلى:
+  - `?mode=company-admin&tab=clients`
+
+**Impact**
+- نقطة دخول واحدة لمحادثات العملاء (Company Admin > Clients)، ما يمنع إنشاء/استخدام مسارين مختلفين لنفس العميل.
+
+---
+
+## ✅ التحقق
+- `npm run build` للواجهة ✅
